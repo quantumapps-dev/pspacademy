@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
-import { Plus, Search, Users, Calendar, BookOpen, Building2 } from 'lucide-react';
+import { Plus, Search, Calendar, BookOpen, Building2 } from 'lucide-react';
 
 export default function Home() {
   return (
@@ -64,19 +64,7 @@ export default function Home() {
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-8 text-center">
             Academy Features
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Card className="bg-white dark:bg-gray-800 border-0 shadow">
-              <CardHeader>
-                <Users className="w-8 h-8 text-blue-600 mb-2" />
-                <CardTitle className="text-lg text-gray-900 dark:text-white">Profile Management</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-gray-600 dark:text-gray-300">
-                  Track your progression from Applicant to Cadet to Trooper
-                </p>
-              </CardContent>
-            </Card>
-
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <Link href="/facility-booking">
               <Card className="bg-white dark:bg-gray-800 border-0 shadow hover:shadow-lg transition-shadow cursor-pointer h-full">
                 <CardHeader>

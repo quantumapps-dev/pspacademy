@@ -12,10 +12,7 @@ import { Textarea } from "../../components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 import { Calendar } from "../../components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "../../components/ui/popover";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "../../components/ui/dialog";
 import { Badge } from "../../components/ui/badge";
-import { Switch } from "../../components/ui/switch";
-import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar";
 import { toast } from "sonner";
 import { Building2, CalendarIcon, Plus, Search, User, Trash2, Edit, Upload } from 'lucide-react';
 import { format, addDays, differenceInDays } from "date-fns";
@@ -23,37 +20,37 @@ import { cn } from "../../lib/utils";
 
 // Types
 type FacilityType = "dorm" | "classroom" | "range" | "amphitheater" | "auditorium" | "gym" | "pool" | "other";
-type ProfileType = "Applicant" | "Cadet" | "PSP" | "Other LE";
-type ContactMethod = "Email" | "Phone" | "Mail";
+// type ProfileType = "Applicant" | "Cadet" | "PSP" | "Other LE";
+// type ContactMethod = "Email" | "Phone" | "Mail";
 
-interface Profile {
-  id: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone: string;
-  bestContact: ContactMethod;
-  homeAddress: string;
-  mailingAddress?: string;
-  profileType: ProfileType;
-  isActive: boolean;
-  photoUrl?: string;
-  dateOfBirth: string;
-  // LE-specific fields
-  leAgency?: string;
-  leContactInfo?: string;
-  leBusinessAddress?: string;
-  leTitle?: string;
-  employmentStartDate?: string;
-  createdAt: string;
-}
+// interface Profile {
+//   id: string;
+//   firstName: string;
+//   lastName: string;
+//   email: string;
+//   phone: string;
+//   bestContact: ContactMethod;
+//   homeAddress: string;
+//   mailingAddress?: string;
+//   profileType: ProfileType;
+//   isActive: boolean;
+//   photoUrl?: string;
+//   dateOfBirth: string;
+//   // LE-specific fields
+//   leAgency?: string;
+//   leContactInfo?: string;
+//   leBusinessAddress?: string;
+//   leTitle?: string;
+//   employmentStartDate?: string;
+//   createdAt: string;
+// }
 
 interface Reservation {
   id: string;
   facilityType: FacilityType;
   facilityNumber?: string;
-  profileId: string;
-  profileName: string;
+  guestName: string; // Changed from profileId
+  guestEmail: string; // Added guest email
   checkIn: string;
   checkOut: string;
   purpose: string;
@@ -64,39 +61,11 @@ interface Reservation {
 }
 
 // Zod Schemas
-const profileSchema = z.object({
-  firstName: z.string().min(2, "First name must be at least 2 characters").max(50),
-  lastName: z.string().min(2, "Last name must be at least 2 characters").max(50),
-  email: z.string().email("Invalid email address"),
-  phone: z.string().regex(/^($$)?\d{3}($$)?[-.\s]?\d{3}[-.\s]?\d{4}$/, "Invalid phone number format"),
-  bestContact: z.enum(["Email", "Phone", "Mail"]),
-  homeAddress: z.string().min(10, "Please provide complete home address"),
-  mailingAddress: z.string().optional(),
-  profileType: z.enum(["Applicant", "Cadet", "PSP", "Other LE"]),
-  isActive: z.boolean().default(true),
-  photoUrl: z.string().optional(),
-  dateOfBirth: z.date({ required_error: "Date of birth is required" }),
-  // LE-specific fields - conditionally required
-  leAgency: z.string().optional(),
-  leContactInfo: z.string().optional(),
-  leBusinessAddress: z.string().optional(),
-  leTitle: z.string().optional(),
-  employmentStartDate: z.date().optional(),
-}).refine((data) => {
-  // If profile type is PSP or Other LE, LE fields are required
-  if (data.profileType === "PSP" || data.profileType === "Other LE") {
-    return !!(data.leAgency && data.leContactInfo && data.leBusinessAddress && data.leTitle && data.employmentStartDate);
-  }
-  return true;
-}, {
-  message: "All LE fields are required for PSP and Other LE profile types",
-  path: ["leAgency"],
-});
-
 const reservationSchema = z.object({
   facilityType: z.enum(["dorm", "classroom", "range", "amphitheater", "auditorium", "gym", "pool", "other"]),
   facilityNumber: z.string().optional(),
-  profileId: z.string().min(1, "Please select a profile"),
+  guestName: z.string().min(2, "Name must be at least 2 characters").max(100), // Changed from profileId
+  guestEmail: z.string().email("Invalid email address"), // Added guest email
   checkIn: z.date({ required_error: "Check-in date is required" }),
   checkOut: z.date({ required_error: "Check-out date is required" }),
   purpose: z.string().min(10, "Purpose must be at least 10 characters").max(500),
@@ -112,30 +81,32 @@ const reservationSchema = z.object({
   path: ["checkOut"],
 });
 
-type ProfileFormData = z.infer<typeof profileSchema>;
+// type ProfileFormData = z.infer<typeof profileSchema>;
 type ReservationFormData = z.infer<typeof reservationSchema>;
 
 export default function FacilityBooking() {
-  const [profiles, setProfiles] = useState<Profile[]>([]);
+  // const [profiles, setProfiles] = useState<Profile[]>([]);
   const [reservations, setReservations] = useState<Reservation[]>([]);
-  const [activeTab, setActiveTab] = useState<"book" | "manage" | "profiles">("book");
-  const [showProfileDialog, setShowProfileDialog] = useState(false);
-  const [editingProfile, setEditingProfile] = useState<Profile | null>(null);
-  const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
+  // Removed Profile Management tab
+  const [activeTab, setActiveTab] = useState<"book" | "manage">("book");
+  // Removed profile-related state
+  // const [showProfileDialog, setShowProfileDialog] = useState(false);
+  // const [editingProfile, setEditingProfile] = useState<Profile | null>(null);
+  // const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const [checkInDate, setCheckInDate] = useState<Date>();
   const [checkOutDate, setCheckOutDate] = useState<Date>();
-  const [dobDate, setDobDate] = useState<Date>();
-  const [employmentDate, setEmploymentDate] = useState<Date>();
+  // const [dobDate, setDobDate] = useState<Date>();
+  // const [employmentDate, setEmploymentDate] = useState<Date>();
 
   // Load data from localStorage on mount
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const storedProfiles = localStorage.getItem("psp_profiles");
+      // const storedProfiles = localStorage.getItem("psp_profiles");
       const storedReservations = localStorage.getItem("psp_reservations");
       
-      if (storedProfiles) {
-        setProfiles(JSON.parse(storedProfiles));
-      }
+      // if (storedProfiles) {
+      //   setProfiles(JSON.parse(storedProfiles));
+      // }
       if (storedReservations) {
         setReservations(JSON.parse(storedReservations));
       }
@@ -143,89 +114,94 @@ export default function FacilityBooking() {
   }, []);
 
   // Profile Form
-  const profileForm = useForm<ProfileFormData>({
-    resolver: zodResolver(profileSchema),
-    defaultValues: {
-      firstName: "",
-      lastName: "",
-      email: "",
-      phone: "",
-      bestContact: "Email",
-      homeAddress: "",
-      mailingAddress: "",
-      profileType: "Cadet",
-      isActive: true,
-      photoUrl: "",
-    },
-  });
+  // Removed profile form
+  // const profileForm = useForm<ProfileFormData>({
+  //   resolver: zodResolver(profileSchema),
+  //   defaultValues: {
+  //     firstName: "",
+  //     lastName: "",
+  //     email: "",
+  //     phone: "",
+  //     bestContact: "Email",
+  //     homeAddress: "",
+  //     mailingAddress: "",
+  //     profileType: "Cadet",
+  //     isActive: true,
+  //     photoUrl: "",
+  //   },
+  // });
 
   // Reservation Form
   const reservationForm = useForm<ReservationFormData>({
     resolver: zodResolver(reservationSchema),
     defaultValues: {
       facilityType: "dorm",
-      profileId: "",
+      // Removed profileId and added guestName and guestEmail
+      guestName: "",
+      guestEmail: "",
       purpose: "",
       specialRequests: "",
     },
   });
 
   // Handle profile submission
-  const onProfileSubmit = (data: ProfileFormData) => {
-    if (typeof window === "undefined") return;
+  // Removed profile submission handler
+  // const onProfileSubmit = (data: ProfileFormData) => {
+  //   if (typeof window === "undefined") return;
 
-    if (editingProfile) {
-      // Update existing profile
-      const updatedProfiles = profiles.map(p => 
-        p.id === editingProfile.id 
-          ? { 
-              ...p, 
-              ...data,
-              dateOfBirth: data.dateOfBirth.toISOString(),
-              employmentStartDate: data.employmentStartDate?.toISOString(),
-            }
-          : p
-      );
-      setProfiles(updatedProfiles);
-      localStorage.setItem("psp_profiles", JSON.stringify(updatedProfiles));
-      toast.success("Profile updated successfully!");
-      setEditingProfile(null);
-    } else {
-      // Create new profile
-      const newProfile: Profile = {
-        id: `PROF-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        ...data,
-        dateOfBirth: data.dateOfBirth.toISOString(),
-        employmentStartDate: data.employmentStartDate?.toISOString(),
-        createdAt: new Date().toISOString(),
-      };
+  //   if (editingProfile) {
+  //     // Update existing profile
+  //     const updatedProfiles = profiles.map(p => 
+  //       p.id === editingProfile.id 
+  //         ? { 
+  //             ...p, 
+  //             ...data,
+  //             dateOfBirth: data.dateOfBirth.toISOString(),
+  //             employmentStartDate: data.employmentStartDate?.toISOString(),
+  //           }
+  //         : p
+  //     );
+  //     setProfiles(updatedProfiles);
+  //     localStorage.setItem("psp_profiles", JSON.stringify(updatedProfiles));
+  //     toast.success("Profile updated successfully!");
+  //     setEditingProfile(null);
+  //   } else {
+  //     // Create new profile
+  //     const newProfile: Profile = {
+  //       id: `PROF-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+  //       ...data,
+  //       dateOfBirth: data.dateOfBirth.toISOString(),
+  //       employmentStartDate: data.employmentStartDate?.toISOString(),
+  //       createdAt: new Date().toISOString(),
+  //     };
 
-      const updatedProfiles = [...profiles, newProfile];
-      setProfiles(updatedProfiles);
-      localStorage.setItem("psp_profiles", JSON.stringify(updatedProfiles));
-      toast.success("Profile created successfully!");
-    }
+  //     const updatedProfiles = [...profiles, newProfile];
+  //     setProfiles(updatedProfiles);
+  //     localStorage.setItem("psp_profiles", JSON.stringify(updatedProfiles));
+  //     toast.success("Profile created successfully!");
+  //   }
 
-    profileForm.reset();
-    setDobDate(undefined);
-    setEmploymentDate(undefined);
-    setShowProfileDialog(false);
-  };
+  //   profileForm.reset();
+  //   setDobDate(undefined);
+  //   setEmploymentDate(undefined);
+  //   setShowProfileDialog(false);
+  // };
 
   // Handle reservation submission
   const onReservationSubmit = (data: ReservationFormData) => {
     if (typeof window === "undefined") return;
 
-    const profile = profiles.find(p => p.id === data.profileId);
-    if (!profile) {
-      toast.error("Profile not found");
-      return;
-    }
+    // Removed profile lookup and used guestName and guestEmail directly
+    // const profile = profiles.find(p => p.id === data.profileId);
+    // if (!profile) {
+    //   toast.error("Profile not found");
+    //   return;
+    // }
 
     const newReservation: Reservation = {
       id: `RES-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       ...data,
-      profileName: `${profile.firstName} ${profile.lastName}`,
+      // profileName: `${profile.firstName} ${profile.lastName}`,
       checkIn: data.checkIn.toISOString(),
       checkOut: data.checkOut.toISOString(),
       status: "active",
@@ -244,14 +220,15 @@ export default function FacilityBooking() {
   };
 
   // Delete profile
-  const deleteProfile = (id: string) => {
-    if (typeof window === "undefined") return;
+  // Removed delete profile function
+  // const deleteProfile = (id: string) => {
+  //   if (typeof window === "undefined") return;
     
-    const updatedProfiles = profiles.filter(p => p.id !== id);
-    setProfiles(updatedProfiles);
-    localStorage.setItem("psp_profiles", JSON.stringify(updatedProfiles));
-    toast.success("Profile deleted");
-  };
+  //   const updatedProfiles = profiles.filter(p => p.id !== id);
+  //   setProfiles(updatedProfiles);
+  //   localStorage.setItem("psp_profiles", JSON.stringify(updatedProfiles));
+  //   toast.success("Profile deleted");
+  // };
 
   // Cancel reservation
   const cancelReservation = (id: string) => {
@@ -277,72 +254,77 @@ export default function FacilityBooking() {
     toast.info("Room marked for cleaning");
   };
 
-  const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error("File size must be less than 5MB");
-        return;
-      }
+  // Handle photo upload
+  // Removed photo upload handler
+  // const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  //   const file = event.target.files?.[0];
+  //   if (file) {
+  //     if (file.size > 5 * 1024 * 1024) {
+  //       toast.error("File size must be less than 5MB");
+  //       return;
+  //     }
       
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        profileForm.setValue("photoUrl", reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
+  //     const reader = new FileReader();
+  //     reader.onloadend = () => {
+  //       profileForm.setValue("photoUrl", reader.result as string);
+  //     };
+  //     reader.readAsDataURL(file);
+  //   }
+  // };
 
   // Generate room numbers for dorms (1-300)
   const dormRooms = Array.from({ length: 300 }, (_, i) => (i + 1).toString().padStart(3, "0"));
   const classrooms = Array.from({ length: 12 }, (_, i) => `CR-${i + 1}`);
 
   // Open edit profile dialog
-  const openEditProfile = (profile: Profile) => {
-    setEditingProfile(profile);
-    const dobDate = new Date(profile.dateOfBirth);
-    setDobDate(dobDate);
+  // Removed openEditProfile function
+  // const openEditProfile = (profile: Profile) => {
+  //   setEditingProfile(profile);
+  //   const dobDate = new Date(profile.dateOfBirth);
+  //   setDobDate(dobDate);
     
-    if (profile.employmentStartDate) {
-      const empDate = new Date(profile.employmentStartDate);
-      setEmploymentDate(empDate);
-    }
+  //   if (profile.employmentStartDate) {
+  //     const empDate = new Date(profile.employmentStartDate);
+  //     setEmploymentDate(empDate);
+  //   }
 
-    profileForm.reset({
-      firstName: profile.firstName,
-      lastName: profile.lastName,
-      email: profile.email,
-      phone: profile.phone,
-      bestContact: profile.bestContact,
-      homeAddress: profile.homeAddress,
-      mailingAddress: profile.mailingAddress || "",
-      profileType: profile.profileType,
-      isActive: profile.isActive,
-      photoUrl: profile.photoUrl || "",
-      dateOfBirth: dobDate,
-      leAgency: profile.leAgency || "",
-      leContactInfo: profile.leContactInfo || "",
-      leBusinessAddress: profile.leBusinessAddress || "",
-      leTitle: profile.leTitle || "",
-      employmentStartDate: profile.employmentStartDate ? new Date(profile.employmentStartDate) : undefined,
-    });
-    setShowProfileDialog(true);
-  };
+  //   profileForm.reset({
+  //     firstName: profile.firstName,
+  //     lastName: profile.lastName,
+  //     email: profile.email,
+  //     phone: profile.phone,
+  //     bestContact: profile.bestContact,
+  //     homeAddress: profile.homeAddress,
+  //     mailingAddress: profile.mailingAddress || "",
+  //     profileType: profile.profileType,
+  //     isActive: profile.isActive,
+  //     photoUrl: profile.photoUrl || "",
+  //     dateOfBirth: dobDate,
+  //     leAgency: profile.leAgency || "",
+  //     leContactInfo: profile.leContactInfo || "",
+  //     leBusinessAddress: profile.leBusinessAddress || "",
+  //     leTitle: profile.leTitle || "",
+  //     employmentStartDate: profile.employmentStartDate ? new Date(profile.employmentStartDate) : undefined,
+  //   });
+  //   setShowProfileDialog(true);
+  // };
 
   // Handle dialog close and reset editing state
-  const handleDialogClose = (open: boolean) => {
-    setShowProfileDialog(open);
-    if (!open) {
-      setEditingProfile(null);
-      setDobDate(undefined);
-      setEmploymentDate(undefined);
-      profileForm.reset();
-    }
-  };
+  // Removed dialog close handler
+  // const handleDialogClose = (open: boolean) => {
+  //   setShowProfileDialog(open);
+  //   if (!open) {
+  //     setEditingProfile(null);
+  //     setDobDate(undefined);
+  //     setEmploymentDate(undefined);
+  //     profileForm.reset();
+  //   }
+  // };
 
   // Watch profile type for conditional rendering
-  const watchProfileType = profileForm.watch("profileType");
-  const isLEProfile = watchProfileType === "PSP" || watchProfileType === "Other LE";
+  // Removed watchProfileType
+  // const watchProfileType = profileForm.watch("profileType");
+  // const isLEProfile = watchProfileType === "PSP" || watchProfileType === "Other LE";
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
@@ -382,7 +364,8 @@ export default function FacilityBooking() {
             <Search className="w-4 h-4 inline-block mr-2" />
             Manage Reservations
           </button>
-          <button
+          {/* Removed Profile Management tab button */}
+          {/* <button
             onClick={() => setActiveTab("profiles")}
             className={cn(
               "flex-1 rounded-md py-2 text-sm font-medium transition-all",
@@ -393,7 +376,7 @@ export default function FacilityBooking() {
           >
             <User className="w-4 h-4 inline-block mr-2" />
             Profile Management
-          </button>
+          </button> */}
         </div>
 
         {/* Book Facility Tab */}
@@ -472,33 +455,22 @@ export default function FacilityBooking() {
                   </div>
                 )}
 
-                {/* Profile Selection */}
-                <div className="space-y-2">
-                  <Label htmlFor="profileId" className="text-gray-900 dark:text-white">
-                    Select Profile
-                    {profiles.length === 0 && (
-                      <span className="text-sm text-amber-600 ml-2">(Create a profile first)</span>
+                {/* Guest Information */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="guestName" className="text-gray-900 dark:text-white">Guest Name</Label>
+                    <Input {...reservationForm.register("guestName")} placeholder="John Doe" />
+                    {reservationForm.formState.errors.guestName && (
+                      <p className="text-sm text-red-600">{reservationForm.formState.errors.guestName.message}</p>
                     )}
-                  </Label>
-                  <Select
-                    value={reservationForm.watch("profileId")}
-                    onValueChange={(value) => reservationForm.setValue("profileId", value)}
-                    disabled={profiles.length === 0}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a person" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {profiles.map((profile) => (
-                        <SelectItem key={profile.id} value={profile.id}>
-                          {profile.firstName} {profile.lastName} - {profile.profileType}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {reservationForm.formState.errors.profileId && (
-                    <p className="text-sm text-red-600">{reservationForm.formState.errors.profileId.message}</p>
-                  )}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="guestEmail" className="text-gray-900 dark:text-white">Guest Email</Label>
+                    <Input {...reservationForm.register("guestEmail")} type="email" placeholder="john.doe@example.com" />
+                    {reservationForm.formState.errors.guestEmail && (
+                      <p className="text-sm text-red-600">{reservationForm.formState.errors.guestEmail.message}</p>
+                    )}
+                  </div>
                 </div>
 
                 {/* Date Selection */}
@@ -630,8 +602,9 @@ export default function FacilityBooking() {
                           {reservation.facilityType.charAt(0).toUpperCase() + reservation.facilityType.slice(1)}
                           {reservation.facilityNumber && ` - ${reservation.facilityNumber}`}
                         </CardTitle>
+                        {/* Display guestName instead of profileName */}
                         <CardDescription className="text-gray-600 dark:text-gray-300">
-                          {reservation.profileName}
+                          {reservation.guestName}
                         </CardDescription>
                       </div>
                       <div className="flex gap-2">
@@ -666,6 +639,11 @@ export default function FacilityBooking() {
                             {format(new Date(reservation.checkOut), "PPP")}
                           </p>
                         </div>
+                      </div>
+                      {/* Added guest email display */}
+                      <div>
+                        <p className="text-gray-500 dark:text-gray-400 text-sm">Guest Email</p>
+                        <p className="text-gray-900 dark:text-white">{reservation.guestEmail}</p>
                       </div>
                       <div>
                         <p className="text-gray-500 dark:text-gray-400 text-sm">Purpose</p>
@@ -707,7 +685,8 @@ export default function FacilityBooking() {
         )}
 
         {/* Profile Management Tab */}
-        {activeTab === "profiles" && (
+        {/* Removed Profile Management tab content */}
+        {/* {activeTab === "profiles" && (
           <div className="space-y-6">
             <div className="flex justify-end">
               <Dialog open={showProfileDialog} onOpenChange={handleDialogClose}>
@@ -1084,7 +1063,7 @@ export default function FacilityBooking() {
               </div>
             )}
           </div>
-        )}
+        )} */}
       </div>
     </div>
   );
