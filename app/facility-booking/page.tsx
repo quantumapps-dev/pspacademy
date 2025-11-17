@@ -14,14 +14,17 @@ import { Calendar } from "../../components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "../../components/ui/popover";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "../../components/ui/dialog";
 import { Badge } from "../../components/ui/badge";
+import { Switch } from "../../components/ui/switch";
+import { Avatar, AvatarFallback, AvatarImage } from "../../components/ui/avatar";
 import { toast } from "sonner";
-import { Building2, CalendarIcon, Plus, Search, User, Trash2, Edit } from 'lucide-react';
+import { Building2, CalendarIcon, Plus, Search, User, Trash2, Edit, Upload } from 'lucide-react';
 import { format, addDays, differenceInDays } from "date-fns";
 import { cn } from "../../lib/utils";
 
 // Types
 type FacilityType = "dorm" | "classroom" | "range" | "amphitheater" | "auditorium" | "gym" | "pool" | "other";
-type ProfileType = "Applicant" | "Cadet" | "Trooper" | "Instructor" | "Administrator";
+type ProfileType = "Applicant" | "Cadet" | "PSP" | "Other LE";
+type ContactMethod = "Email" | "Phone" | "Mail";
 
 interface Profile {
   id: string;
@@ -29,7 +32,19 @@ interface Profile {
   lastName: string;
   email: string;
   phone: string;
+  bestContact: ContactMethod;
+  homeAddress: string;
+  mailingAddress?: string;
   profileType: ProfileType;
+  isActive: boolean;
+  photoUrl?: string;
+  dateOfBirth: string;
+  // LE-specific fields
+  leAgency?: string;
+  leContactInfo?: string;
+  leBusinessAddress?: string;
+  leTitle?: string;
+  employmentStartDate?: string;
   createdAt: string;
 }
 
@@ -54,7 +69,28 @@ const profileSchema = z.object({
   lastName: z.string().min(2, "Last name must be at least 2 characters").max(50),
   email: z.string().email("Invalid email address"),
   phone: z.string().regex(/^($$)?\d{3}($$)?[-.\s]?\d{3}[-.\s]?\d{4}$/, "Invalid phone number format"),
-  profileType: z.enum(["Applicant", "Cadet", "Trooper", "Instructor", "Administrator"]),
+  bestContact: z.enum(["Email", "Phone", "Mail"]),
+  homeAddress: z.string().min(10, "Please provide complete home address"),
+  mailingAddress: z.string().optional(),
+  profileType: z.enum(["Applicant", "Cadet", "PSP", "Other LE"]),
+  isActive: z.boolean().default(true),
+  photoUrl: z.string().optional(),
+  dateOfBirth: z.date({ required_error: "Date of birth is required" }),
+  // LE-specific fields - conditionally required
+  leAgency: z.string().optional(),
+  leContactInfo: z.string().optional(),
+  leBusinessAddress: z.string().optional(),
+  leTitle: z.string().optional(),
+  employmentStartDate: z.date().optional(),
+}).refine((data) => {
+  // If profile type is PSP or Other LE, LE fields are required
+  if (data.profileType === "PSP" || data.profileType === "Other LE") {
+    return !!(data.leAgency && data.leContactInfo && data.leBusinessAddress && data.leTitle && data.employmentStartDate);
+  }
+  return true;
+}, {
+  message: "All LE fields are required for PSP and Other LE profile types",
+  path: ["leAgency"],
 });
 
 const reservationSchema = z.object({
@@ -88,6 +124,8 @@ export default function FacilityBooking() {
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const [checkInDate, setCheckInDate] = useState<Date>();
   const [checkOutDate, setCheckOutDate] = useState<Date>();
+  const [dobDate, setDobDate] = useState<Date>();
+  const [employmentDate, setEmploymentDate] = useState<Date>();
 
   // Load data from localStorage on mount
   useEffect(() => {
@@ -112,7 +150,12 @@ export default function FacilityBooking() {
       lastName: "",
       email: "",
       phone: "",
+      bestContact: "Email",
+      homeAddress: "",
+      mailingAddress: "",
       profileType: "Cadet",
+      isActive: true,
+      photoUrl: "",
     },
   });
 
@@ -135,7 +178,12 @@ export default function FacilityBooking() {
       // Update existing profile
       const updatedProfiles = profiles.map(p => 
         p.id === editingProfile.id 
-          ? { ...p, ...data }
+          ? { 
+              ...p, 
+              ...data,
+              dateOfBirth: data.dateOfBirth.toISOString(),
+              employmentStartDate: data.employmentStartDate?.toISOString(),
+            }
           : p
       );
       setProfiles(updatedProfiles);
@@ -147,6 +195,8 @@ export default function FacilityBooking() {
       const newProfile: Profile = {
         id: `PROF-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         ...data,
+        dateOfBirth: data.dateOfBirth.toISOString(),
+        employmentStartDate: data.employmentStartDate?.toISOString(),
         createdAt: new Date().toISOString(),
       };
 
@@ -157,6 +207,8 @@ export default function FacilityBooking() {
     }
 
     profileForm.reset();
+    setDobDate(undefined);
+    setEmploymentDate(undefined);
     setShowProfileDialog(false);
   };
 
@@ -225,6 +277,22 @@ export default function FacilityBooking() {
     toast.info("Room marked for cleaning");
   };
 
+  const handlePhotoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error("File size must be less than 5MB");
+        return;
+      }
+      
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        profileForm.setValue("photoUrl", reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   // Generate room numbers for dorms (1-300)
   const dormRooms = Array.from({ length: 300 }, (_, i) => (i + 1).toString().padStart(3, "0"));
   const classrooms = Array.from({ length: 12 }, (_, i) => `CR-${i + 1}`);
@@ -232,12 +300,31 @@ export default function FacilityBooking() {
   // Open edit profile dialog
   const openEditProfile = (profile: Profile) => {
     setEditingProfile(profile);
+    const dobDate = new Date(profile.dateOfBirth);
+    setDobDate(dobDate);
+    
+    if (profile.employmentStartDate) {
+      const empDate = new Date(profile.employmentStartDate);
+      setEmploymentDate(empDate);
+    }
+
     profileForm.reset({
       firstName: profile.firstName,
       lastName: profile.lastName,
       email: profile.email,
       phone: profile.phone,
+      bestContact: profile.bestContact,
+      homeAddress: profile.homeAddress,
+      mailingAddress: profile.mailingAddress || "",
       profileType: profile.profileType,
+      isActive: profile.isActive,
+      photoUrl: profile.photoUrl || "",
+      dateOfBirth: dobDate,
+      leAgency: profile.leAgency || "",
+      leContactInfo: profile.leContactInfo || "",
+      leBusinessAddress: profile.leBusinessAddress || "",
+      leTitle: profile.leTitle || "",
+      employmentStartDate: profile.employmentStartDate ? new Date(profile.employmentStartDate) : undefined,
     });
     setShowProfileDialog(true);
   };
@@ -247,9 +334,15 @@ export default function FacilityBooking() {
     setShowProfileDialog(open);
     if (!open) {
       setEditingProfile(null);
+      setDobDate(undefined);
+      setEmploymentDate(undefined);
       profileForm.reset();
     }
   };
+
+  // Watch profile type for conditional rendering
+  const watchProfileType = profileForm.watch("profileType");
+  const isLEProfile = watchProfileType === "PSP" || watchProfileType === "Other LE";
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
@@ -624,24 +717,52 @@ export default function FacilityBooking() {
                     Add Profile
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-md">
+                <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
                     <DialogTitle>{editingProfile ? "Edit Profile" : "Create New Profile"}</DialogTitle>
                     <DialogDescription>
                       {editingProfile ? "Update profile information" : "Add a person to the profile management system"}
                     </DialogDescription>
                   </DialogHeader>
-                  <form onSubmit={profileForm.handleSubmit(onProfileSubmit)} className="space-y-4">
+                  <form onSubmit={profileForm.handleSubmit(onProfileSubmit)} className="space-y-6">
+                    <div className="space-y-2">
+                      <Label>Profile Photo</Label>
+                      <div className="flex items-center gap-4">
+                        <Avatar className="w-20 h-20">
+                          <AvatarImage src={profileForm.watch("photoUrl") || "/placeholder.svg"} />
+                          <AvatarFallback>
+                            {profileForm.watch("firstName")?.[0]}{profileForm.watch("lastName")?.[0]}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <Input
+                            type="file"
+                            accept="image/*"
+                            onChange={handlePhotoUpload}
+                            className="hidden"
+                            id="photo-upload"
+                          />
+                          <Label htmlFor="photo-upload" className="cursor-pointer">
+                            <div className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-800 rounded-md hover:bg-gray-200 dark:hover:bg-gray-700">
+                              <Upload className="w-4 h-4" />
+                              <span className="text-sm">Upload Photo</span>
+                            </div>
+                          </Label>
+                          <p className="text-xs text-gray-500 mt-1">Max 5MB (JPG, PNG)</p>
+                        </div>
+                      </div>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
-                        <Label htmlFor="firstName">First Name</Label>
+                        <Label htmlFor="firstName">First Name *</Label>
                         <Input {...profileForm.register("firstName")} placeholder="John" />
                         {profileForm.formState.errors.firstName && (
                           <p className="text-sm text-red-600">{profileForm.formState.errors.firstName.message}</p>
                         )}
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="lastName">Last Name</Label>
+                        <Label htmlFor="lastName">Last Name *</Label>
                         <Input {...profileForm.register("lastName")} placeholder="Doe" />
                         {profileForm.formState.errors.lastName && (
                           <p className="text-sm text-red-600">{profileForm.formState.errors.lastName.message}</p>
@@ -650,41 +771,219 @@ export default function FacilityBooking() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label htmlFor="email">Email</Label>
-                      <Input {...profileForm.register("email")} type="email" placeholder="john.doe@example.com" />
-                      {profileForm.formState.errors.email && (
-                        <p className="text-sm text-red-600">{profileForm.formState.errors.email.message}</p>
+                      <Label>Date of Birth *</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal",
+                              !dobDate && "text-gray-500"
+                            )}
+                          >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {dobDate ? format(dobDate, "PPP") : "Select date of birth"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                          <Calendar
+                            mode="single"
+                            selected={dobDate}
+                            onSelect={(date) => {
+                              setDobDate(date);
+                              if (date) profileForm.setValue("dateOfBirth", date);
+                            }}
+                            disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      {profileForm.formState.errors.dateOfBirth && (
+                        <p className="text-sm text-red-600">{profileForm.formState.errors.dateOfBirth.message}</p>
                       )}
                     </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="phone">Phone</Label>
-                      <Input {...profileForm.register("phone")} type="tel" placeholder="(555) 123-4567" />
-                      {profileForm.formState.errors.phone && (
-                        <p className="text-sm text-red-600">{profileForm.formState.errors.phone.message}</p>
-                      )}
+                    <div className="space-y-4">
+                      <h3 className="font-semibold text-gray-900 dark:text-white">Contact Information</h3>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="email">Email *</Label>
+                        <Input {...profileForm.register("email")} type="email" placeholder="john.doe@example.com" />
+                        {profileForm.formState.errors.email && (
+                          <p className="text-sm text-red-600">{profileForm.formState.errors.email.message}</p>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="phone">Phone *</Label>
+                        <Input {...profileForm.register("phone")} type="tel" placeholder="(555) 123-4567" />
+                        {profileForm.formState.errors.phone && (
+                          <p className="text-sm text-red-600">{profileForm.formState.errors.phone.message}</p>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="bestContact">Best Way to Contact *</Label>
+                        <Select
+                          value={profileForm.watch("bestContact")}
+                          onValueChange={(value) => profileForm.setValue("bestContact", value as ContactMethod)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Email">Email</SelectItem>
+                            <SelectItem value="Phone">Phone</SelectItem>
+                            <SelectItem value="Mail">Mail</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
 
-                    <div className="space-y-2">
-                      <Label htmlFor="profileType">Profile Type</Label>
-                      <Select
-                        value={profileForm.watch("profileType")}
-                        onValueChange={(value) => profileForm.setValue("profileType", value as ProfileType)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Applicant">Applicant</SelectItem>
-                          <SelectItem value="Cadet">Cadet</SelectItem>
-                          <SelectItem value="Trooper">Trooper</SelectItem>
-                          <SelectItem value="Instructor">Instructor</SelectItem>
-                          <SelectItem value="Administrator">Administrator</SelectItem>
-                        </SelectContent>
-                      </Select>
+                    <div className="space-y-4">
+                      <h3 className="font-semibold text-gray-900 dark:text-white">Address Information</h3>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="homeAddress">Home Address *</Label>
+                        <Textarea
+                          {...profileForm.register("homeAddress")}
+                          placeholder="123 Main St, City, State ZIP"
+                          rows={2}
+                        />
+                        {profileForm.formState.errors.homeAddress && (
+                          <p className="text-sm text-red-600">{profileForm.formState.errors.homeAddress.message}</p>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="mailingAddress">Mailing Address (if different)</Label>
+                        <Textarea
+                          {...profileForm.register("mailingAddress")}
+                          placeholder="P.O. Box 123, City, State ZIP"
+                          rows={2}
+                        />
+                      </div>
                     </div>
 
-                    <Button type="submit" className="w-full">
+                    <div className="space-y-4">
+                      <h3 className="font-semibold text-gray-900 dark:text-white">Profile Settings</h3>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="profileType">Profile Type *</Label>
+                        <Select
+                          value={profileForm.watch("profileType")}
+                          onValueChange={(value) => profileForm.setValue("profileType", value as ProfileType)}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Applicant">Applicant</SelectItem>
+                            <SelectItem value="Cadet">Cadet</SelectItem>
+                            <SelectItem value="PSP">PSP (Pennsylvania State Police)</SelectItem>
+                            <SelectItem value="Other LE">Other Law Enforcement</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-0.5">
+                          <Label htmlFor="isActive">Active Status</Label>
+                          <p className="text-sm text-gray-500">Is this profile currently active?</p>
+                        </div>
+                        <Switch
+                          checked={profileForm.watch("isActive")}
+                          onCheckedChange={(checked) => profileForm.setValue("isActive", checked)}
+                        />
+                      </div>
+                    </div>
+
+                    {isLEProfile && (
+                      <div className="space-y-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
+                        <h3 className="font-semibold text-blue-900 dark:text-blue-100">Law Enforcement Information</h3>
+                        
+                        <div className="space-y-2">
+                          <Label htmlFor="leAgency">LE Agency *</Label>
+                          <Input
+                            {...profileForm.register("leAgency")}
+                            placeholder="Agency name"
+                          />
+                          {profileForm.formState.errors.leAgency && (
+                            <p className="text-sm text-red-600">{profileForm.formState.errors.leAgency.message}</p>
+                          )}
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="leTitle">Title *</Label>
+                          <Input
+                            {...profileForm.register("leTitle")}
+                            placeholder="Officer, Detective, etc."
+                          />
+                          {profileForm.formState.errors.leTitle && (
+                            <p className="text-sm text-red-600">{profileForm.formState.errors.leTitle.message}</p>
+                          )}
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="leContactInfo">LE Contact Information *</Label>
+                          <Textarea
+                            {...profileForm.register("leContactInfo")}
+                            placeholder="Work phone, work email, etc."
+                            rows={2}
+                          />
+                          {profileForm.formState.errors.leContactInfo && (
+                            <p className="text-sm text-red-600">{profileForm.formState.errors.leContactInfo.message}</p>
+                          )}
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="leBusinessAddress">LE Business/Mailing Address *</Label>
+                          <Textarea
+                            {...profileForm.register("leBusinessAddress")}
+                            placeholder="Agency address"
+                            rows={2}
+                          />
+                          {profileForm.formState.errors.leBusinessAddress && (
+                            <p className="text-sm text-red-600">{profileForm.formState.errors.leBusinessAddress.message}</p>
+                          )}
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label>Employment Start Date *</Label>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                className={cn(
+                                  "w-full justify-start text-left font-normal",
+                                  !employmentDate && "text-gray-500"
+                                )}
+                              >
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {employmentDate ? format(employmentDate, "PPP") : "Select employment start date"}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0">
+                              <Calendar
+                                mode="single"
+                                selected={employmentDate}
+                                onSelect={(date) => {
+                                  setEmploymentDate(date);
+                                  if (date) profileForm.setValue("employmentStartDate", date);
+                                }}
+                                disabled={(date) => date > new Date()}
+                                initialFocus
+                              />
+                            </PopoverContent>
+                          </Popover>
+                          {profileForm.formState.errors.employmentStartDate && (
+                            <p className="text-sm text-red-600">{profileForm.formState.errors.employmentStartDate.message}</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    <Button type="submit" className="w-full" size="lg">
                       {editingProfile ? "Update Profile" : "Create Profile"}
                     </Button>
                   </form>
@@ -708,13 +1007,13 @@ export default function FacilityBooking() {
                 {profiles.map((profile) => (
                   <Card key={profile.id} className="bg-white dark:bg-gray-800">
                     <CardHeader>
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <CardTitle className="text-gray-900 dark:text-white">
-                            {profile.firstName} {profile.lastName}
-                          </CardTitle>
-                          <Badge className="mt-1">{profile.profileType}</Badge>
-                        </div>
+                      <div className="flex justify-between items-start mb-2">
+                        <Avatar className="w-16 h-16">
+                          <AvatarImage src={profile.photoUrl || "/placeholder.svg"} />
+                          <AvatarFallback>
+                            {profile.firstName[0]}{profile.lastName[0]}
+                          </AvatarFallback>
+                        </Avatar>
                         <div className="flex gap-1">
                           <Button
                             variant="ghost"
@@ -732,17 +1031,48 @@ export default function FacilityBooking() {
                           </Button>
                         </div>
                       </div>
+                      <div>
+                        <CardTitle className="text-gray-900 dark:text-white">
+                          {profile.firstName} {profile.lastName}
+                        </CardTitle>
+                        <div className="flex gap-2 mt-2">
+                          <Badge>{profile.profileType}</Badge>
+                          <Badge variant={profile.isActive ? "default" : "secondary"}>
+                            {profile.isActive ? "Active" : "Inactive"}
+                          </Badge>
+                        </div>
+                      </div>
                     </CardHeader>
                     <CardContent>
                       <div className="space-y-2 text-sm">
                         <div>
                           <p className="text-gray-500 dark:text-gray-400">Email</p>
-                          <p className="text-gray-900 dark:text-white">{profile.email}</p>
+                          <p className="text-gray-900 dark:text-white break-all">{profile.email}</p>
                         </div>
                         <div>
                           <p className="text-gray-500 dark:text-gray-400">Phone</p>
                           <p className="text-gray-900 dark:text-white">{profile.phone}</p>
                         </div>
+                        <div>
+                          <p className="text-gray-500 dark:text-gray-400">Best Contact</p>
+                          <p className="text-gray-900 dark:text-white">{profile.bestContact}</p>
+                        </div>
+                        <div>
+                          <p className="text-gray-500 dark:text-gray-400">DOB</p>
+                          <p className="text-gray-900 dark:text-white">{format(new Date(profile.dateOfBirth), "PP")}</p>
+                        </div>
+                        {(profile.profileType === "PSP" || profile.profileType === "Other LE") && (
+                          <>
+                            <div className="pt-2 border-t">
+                              <p className="text-gray-500 dark:text-gray-400">LE Agency</p>
+                              <p className="text-gray-900 dark:text-white font-medium">{profile.leAgency}</p>
+                            </div>
+                            <div>
+                              <p className="text-gray-500 dark:text-gray-400">Title</p>
+                              <p className="text-gray-900 dark:text-white">{profile.leTitle}</p>
+                            </div>
+                          </>
+                        )}
                         <div>
                           <p className="text-gray-500 dark:text-gray-400">ID</p>
                           <p className="text-xs font-mono text-gray-900 dark:text-white">{profile.id}</p>
