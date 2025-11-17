@@ -20,7 +20,7 @@ const formSchema = z.object({
   lastName: z.string().min(2, "Last name must be at least 2 characters").max(50, "Last name must not exceed 50 characters"),
   suffix: z.string().max(10, "Suffix must not exceed 10 characters").optional().or(z.literal("")),
   email: z.string().email("Please enter a valid email address"),
-  phone: z.string().regex(/^$$?([0-9]{3})$$?[-.\s]?([0-9]{3})[-.\s]?([0-9]{4})$/, "Please enter a valid 10-digit US phone number"),
+  phone: z.string().regex(/^($$)?[0-9]{3}($$)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4}$/, "Please enter a valid 10-digit US phone number"),
   phoneType: z.enum(["Mobile", "Home", "Work"], {
     errorMap: () => ({ message: "Please select a phone type" })
   }),
