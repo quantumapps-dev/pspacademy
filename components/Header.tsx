@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useTheme } from "next-themes";
-import { Moon, Sun } from "lucide-react";
+import { Moon, Sun } from 'lucide-react';
 import { Button } from "./ui/button";
 
 interface HeaderProps {
@@ -21,10 +21,10 @@ export default function Header({ rightLogos = [] }: HeaderProps) {
           <div className="flex items-center">
             <Link href="/" className="flex items-center space-x-2">
               <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">Q</span>
+                <span className="text-white font-bold text-sm">PSP</span>
               </div>
               <span className="text-xl font-semibold text-gray-900 dark:text-white">
-                Quantum Apps
+                PSP Academy
               </span>
             </Link>
           </div>
@@ -56,7 +56,7 @@ export default function Header({ rightLogos = [] }: HeaderProps) {
             {rightLogos.slice(0, 2).map((logoUrl, index) => (
               <div key={index} className="w-8 h-8 relative">
                 <Image
-                  src={logoUrl}
+                  src={logoUrl || "/placeholder.svg"}
                   alt={`Logo ${index + 1}`}
                   fill
                   className="object-contain"
