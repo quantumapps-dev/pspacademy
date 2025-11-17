@@ -77,17 +77,19 @@ export default function Home() {
               </CardContent>
             </Card>
 
-            <Card className="bg-white dark:bg-gray-800 border-0 shadow">
-              <CardHeader>
-                <Building2 className="w-8 h-8 text-green-600 mb-2" />
-                <CardTitle className="text-lg text-gray-900 dark:text-white">Facility Booking</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-gray-600 dark:text-gray-300">
-                  Reserve dorm rooms, classrooms, and training facilities
-                </p>
-              </CardContent>
-            </Card>
+            <Link href="/facility-booking">
+              <Card className="bg-white dark:bg-gray-800 border-0 shadow hover:shadow-lg transition-shadow cursor-pointer h-full">
+                <CardHeader>
+                  <Building2 className="w-8 h-8 text-green-600 mb-2" />
+                  <CardTitle className="text-lg text-gray-900 dark:text-white">Facility Booking</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">
+                    Reserve dorm rooms, classrooms, and training facilities
+                  </p>
+                </CardContent>
+              </Card>
+            </Link>
 
             <Card className="bg-white dark:bg-gray-800 border-0 shadow">
               <CardHeader>

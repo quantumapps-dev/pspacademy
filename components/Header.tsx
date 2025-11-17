@@ -49,6 +49,12 @@ export default function Header({ rightLogos = [] }: HeaderProps) {
             >
               Track Application
             </Link>
+            <Link
+              href="/facility-booking"
+              className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 px-3 py-2 text-sm font-medium transition-colors"
+            >
+              Facility Booking
+            </Link>
           </nav>
 
           {/* Right side - Optional logos and theme toggle */}
@@ -115,6 +121,12 @@ export default function Header({ rightLogos = [] }: HeaderProps) {
               className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 block px-3 py-2 text-base font-medium"
             >
               Track Application
+            </Link>
+            <Link
+              href="/facility-booking"
+              className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 block px-3 py-2 text-base font-medium"
+            >
+              Facility Booking
             </Link>
           </div>
         </div>
