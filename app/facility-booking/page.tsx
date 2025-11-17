@@ -15,7 +15,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "../../components/ui/pop
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "../../components/ui/dialog";
 import { Badge } from "../../components/ui/badge";
 import { toast } from "sonner";
-import { Building2, CalendarIcon, Plus, Search, User, Trash2 } from 'lucide-react';
+import { Building2, CalendarIcon, Plus, Search, User, Trash2, Edit } from 'lucide-react';
 import { format, addDays, differenceInDays } from "date-fns";
 import { cn } from "../../lib/utils";
 
@@ -84,6 +84,7 @@ export default function FacilityBooking() {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [activeTab, setActiveTab] = useState<"book" | "manage" | "profiles">("book");
   const [showProfileDialog, setShowProfileDialog] = useState(false);
+  const [editingProfile, setEditingProfile] = useState<Profile | null>(null);
   const [selectedProfile, setSelectedProfile] = useState<Profile | null>(null);
   const [checkInDate, setCheckInDate] = useState<Date>();
   const [checkOutDate, setCheckOutDate] = useState<Date>();
@@ -130,17 +131,31 @@ export default function FacilityBooking() {
   const onProfileSubmit = (data: ProfileFormData) => {
     if (typeof window === "undefined") return;
 
-    const newProfile: Profile = {
-      id: `PROF-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      ...data,
-      createdAt: new Date().toISOString(),
-    };
+    if (editingProfile) {
+      // Update existing profile
+      const updatedProfiles = profiles.map(p => 
+        p.id === editingProfile.id 
+          ? { ...p, ...data }
+          : p
+      );
+      setProfiles(updatedProfiles);
+      localStorage.setItem("psp_profiles", JSON.stringify(updatedProfiles));
+      toast.success("Profile updated successfully!");
+      setEditingProfile(null);
+    } else {
+      // Create new profile
+      const newProfile: Profile = {
+        id: `PROF-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        ...data,
+        createdAt: new Date().toISOString(),
+      };
 
-    const updatedProfiles = [...profiles, newProfile];
-    setProfiles(updatedProfiles);
-    localStorage.setItem("psp_profiles", JSON.stringify(updatedProfiles));
+      const updatedProfiles = [...profiles, newProfile];
+      setProfiles(updatedProfiles);
+      localStorage.setItem("psp_profiles", JSON.stringify(updatedProfiles));
+      toast.success("Profile created successfully!");
+    }
 
-    toast.success("Profile created successfully!");
     profileForm.reset();
     setShowProfileDialog(false);
   };
@@ -213,6 +228,28 @@ export default function FacilityBooking() {
   // Generate room numbers for dorms (1-300)
   const dormRooms = Array.from({ length: 300 }, (_, i) => (i + 1).toString().padStart(3, "0"));
   const classrooms = Array.from({ length: 12 }, (_, i) => `CR-${i + 1}`);
+
+  // Open edit profile dialog
+  const openEditProfile = (profile: Profile) => {
+    setEditingProfile(profile);
+    profileForm.reset({
+      firstName: profile.firstName,
+      lastName: profile.lastName,
+      email: profile.email,
+      phone: profile.phone,
+      profileType: profile.profileType,
+    });
+    setShowProfileDialog(true);
+  };
+
+  // Handle dialog close and reset editing state
+  const handleDialogClose = (open: boolean) => {
+    setShowProfileDialog(open);
+    if (!open) {
+      setEditingProfile(null);
+      profileForm.reset();
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
@@ -580,7 +617,7 @@ export default function FacilityBooking() {
         {activeTab === "profiles" && (
           <div className="space-y-6">
             <div className="flex justify-end">
-              <Dialog open={showProfileDialog} onOpenChange={setShowProfileDialog}>
+              <Dialog open={showProfileDialog} onOpenChange={handleDialogClose}>
                 <DialogTrigger asChild>
                   <Button>
                     <Plus className="w-4 h-4 mr-2" />
@@ -589,9 +626,9 @@ export default function FacilityBooking() {
                 </DialogTrigger>
                 <DialogContent className="max-w-md">
                   <DialogHeader>
-                    <DialogTitle>Create New Profile</DialogTitle>
+                    <DialogTitle>{editingProfile ? "Edit Profile" : "Create New Profile"}</DialogTitle>
                     <DialogDescription>
-                      Add a person to the profile management system
+                      {editingProfile ? "Update profile information" : "Add a person to the profile management system"}
                     </DialogDescription>
                   </DialogHeader>
                   <form onSubmit={profileForm.handleSubmit(onProfileSubmit)} className="space-y-4">
@@ -647,7 +684,9 @@ export default function FacilityBooking() {
                       </Select>
                     </div>
 
-                    <Button type="submit" className="w-full">Create Profile</Button>
+                    <Button type="submit" className="w-full">
+                      {editingProfile ? "Update Profile" : "Create Profile"}
+                    </Button>
                   </form>
                 </DialogContent>
               </Dialog>
@@ -676,13 +715,22 @@ export default function FacilityBooking() {
                           </CardTitle>
                           <Badge className="mt-1">{profile.profileType}</Badge>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => deleteProfile(profile.id)}
-                        >
-                          <Trash2 className="w-4 h-4 text-red-600" />
-                        </Button>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openEditProfile(profile)}
+                          >
+                            <Edit className="w-4 h-4 text-blue-600" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => deleteProfile(profile.id)}
+                          >
+                            <Trash2 className="w-4 h-4 text-red-600" />
+                          </Button>
+                        </div>
                       </div>
                     </CardHeader>
                     <CardContent>
