@@ -71,6 +71,12 @@ export default function Header({ rightLogos = [] }: HeaderProps) {
             >
               Training Records
             </Link>
+            <Link
+              href="/user-administration"
+              className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 px-3 py-2 text-sm font-medium transition-colors"
+            >
+              Admin
+            </Link>
           </nav>
 
           <div className="flex items-center space-x-4">
@@ -157,6 +163,12 @@ export default function Header({ rightLogos = [] }: HeaderProps) {
               className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 block px-3 py-2 text-base font-medium"
             >
               Training Records
+            </Link>
+            <Link
+              href="/user-administration"
+              className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 block px-3 py-2 text-base font-medium"
+            >
+              Admin
             </Link>
           </div>
         </div>
