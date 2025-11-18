@@ -61,6 +61,16 @@ interface Reservation {
   needsCleaning?: boolean;
 }
 
+interface ScheduledClass {
+  id: string;
+  classId: string;
+  className: string;
+  facilityType: string;
+  maxAttendees: number;
+  participants: any[];
+  createdAt: string;
+}
+
 // Zod Schemas
 const reservationSchema = z.object({
   facilityType: z.enum(["dorm", "classroom", "range", "amphitheater", "auditorium", "gym", "pool", "other"]),
@@ -115,6 +125,8 @@ export default function FacilityBooking() {
   const [bookedDates, setBookedDates] = useState<Date[]>([]);
   const [hasConflict, setHasConflict] = useState(false);
 
+  const [scheduledClasses, setScheduledClasses] = useState<ScheduledClass[]>([]);
+
   // Load data from localStorage on mount
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -126,6 +138,11 @@ export default function FacilityBooking() {
       // }
       if (storedReservations) {
         setReservations(JSON.parse(storedReservations));
+      }
+      
+      const storedScheduledClasses = localStorage.getItem("scheduled-classes");
+      if (storedScheduledClasses) {
+        setScheduledClasses(JSON.parse(storedScheduledClasses));
       }
     }
   }, []);
@@ -251,6 +268,44 @@ export default function FacilityBooking() {
         (checkIn <= existingStart && checkOut >= existingEnd)
       );
     });
+  };
+
+  const getUnbookedScheduledClasses = (): ScheduledClass[] => {
+    if (typeof window === "undefined") return [];
+    
+    return scheduledClasses.filter(scheduledClass => {
+      // Check if there's NO active reservation matching the scheduled class's facility type
+      const hasBooking = reservations.some(reservation => 
+        reservation.status === "active" && 
+        reservation.facilityType.toLowerCase() === scheduledClass.facilityType.toLowerCase()
+      );
+      return !hasBooking;
+    });
+  };
+
+  const handleScheduledClassSelection = (scheduledClassId: string) => {
+    const selectedScheduledClass = scheduledClasses.find(sc => sc.id === scheduledClassId);
+    if (!selectedScheduledClass) return;
+
+    // Map facility type to match reservation schema
+    let facilityType: FacilityType = "other";
+    switch (selectedScheduledClass.facilityType.toLowerCase()) {
+      case "classroom": facilityType = "classroom"; break;
+      case "range": facilityType = "range"; break;
+      case "amphitheater": facilityType = "amphitheater"; break;
+      case "auditorium": facilityType = "auditorium"; break;
+      case "gym": facilityType = "gym"; break;
+      case "pool": facilityType = "pool"; break;
+    }
+
+    // Pre-fill the form
+    reservationForm.setValue("facilityType", facilityType);
+    setSelectedFacility({ type: facilityType });
+    
+    // Set purpose with class name
+    reservationForm.setValue("purpose", `Training class: ${selectedScheduledClass.className}`);
+    
+    toast.info(`Selected class: ${selectedScheduledClass.className}`);
   };
 
   useEffect(() => {
@@ -491,6 +546,37 @@ export default function FacilityBooking() {
             </CardHeader>
             <CardContent>
               <form onSubmit={reservationForm.handleSubmit(onReservationSubmit)} className="space-y-6">
+                {getUnbookedScheduledClasses().length > 0 && (
+                  <div className="p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg space-y-3">
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                      <h3 className="font-semibold text-amber-900 dark:text-amber-100">
+                        Unbooked Scheduled Classes
+                      </h3>
+                    </div>
+                    <p className="text-sm text-amber-800 dark:text-amber-200">
+                      The following classes are scheduled but don't have facility bookings yet. Select one to quickly book its facility:
+                    </p>
+                    <Select onValueChange={handleScheduledClassSelection}>
+                      <SelectTrigger className="bg-white dark:bg-gray-700 border-amber-300 dark:border-amber-700">
+                        <SelectValue placeholder="Select a scheduled class to book" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {getUnbookedScheduledClasses().map((scheduledClass) => (
+                          <SelectItem key={scheduledClass.id} value={scheduledClass.id}>
+                            <div className="flex flex-col">
+                              <span className="font-medium">{scheduledClass.className}</span>
+                              <span className="text-xs text-gray-500">
+                                {scheduledClass.facilityType} • {scheduledClass.participants.length}/{scheduledClass.maxAttendees} enrolled
+                              </span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
                 {/* Facility Type */}
                 <div className="space-y-2">
                   <Label htmlFor="facilityType" className="text-gray-900 dark:text-white">Facility Type</Label>
