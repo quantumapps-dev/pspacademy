@@ -319,11 +319,11 @@ export default function TrainingRecordsPage() {
           </p>
         </div>
 
-        <Tabs defaultValue="classes" className="space-y-6">
+        <Tabs defaultValue="create" className="space-y-6">
           <TabsList className="grid w-full max-w-2xl grid-cols-3">
+            <TabsTrigger value="create">Create Class</TabsTrigger>
             <TabsTrigger value="classes">All Classes</TabsTrigger>
             <TabsTrigger value="roster">Class Roster</TabsTrigger>
-            <TabsTrigger value="create">Create Class</TabsTrigger>
           </TabsList>
 
           <TabsContent value="classes" className="space-y-6">
