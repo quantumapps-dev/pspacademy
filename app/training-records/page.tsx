@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, BookOpen, Upload, Trash2, FileText, Clock, Calendar, Users, UserPlus, X, Building2, Edit } from 'lucide-react';
+import { Plus, BookOpen, Upload, Trash2, FileText, Clock, Calendar, Users, UserPlus, X, Building2, Edit, BedDouble } from 'lucide-react';
 import { toast } from "sonner";
 
 // Types
@@ -33,6 +33,7 @@ interface TrainingClass {
   durationType: "hours" | "days" | "weeks";
   prerequisites: string[];
   materials: ClassMaterial[];
+  requiresDormRoom: boolean;
   createdAt: string;
 }
 
@@ -70,6 +71,7 @@ const classSchema = z.object({
     errorMap: () => ({ message: "Please select a duration type" }),
   }),
   prerequisites: z.string().optional(),
+  requiresDormRoom: z.boolean().default(false),
 });
 
 // Zod schema for scheduled class
@@ -94,7 +96,7 @@ export default function TrainingRecordsPage() {
   const [currentScheduledClassId, setCurrentScheduledClassId] = useState<string | null>(null);
   const [isParticipantDialogOpen, setIsParticipantDialogOpen] = useState(false);
   const [editingScheduledClassId, setEditingScheduledClassId] = useState<string | null>(null);
-
+  const [requiresDormRoom, setRequiresDormRoom] = useState(false);
 
   const {
     register,
@@ -160,12 +162,14 @@ export default function TrainingRecordsPage() {
       durationType: data.durationType,
       prerequisites,
       materials: materials,
+      requiresDormRoom: data.requiresDormRoom,
       createdAt: new Date().toISOString(),
     };
 
     setClasses([...classes, newClass]);
     setMaterials([]);
     reset();
+    setRequiresDormRoom(false);
     toast.success("Class created successfully!");
   };
 
@@ -410,6 +414,13 @@ export default function TrainingRecordsPage() {
                         <span>{cls.materials.length} Material(s)</span>
                       </div>
 
+                      {cls.requiresDormRoom && (
+                        <div className="flex items-center gap-2 text-sm text-purple-600 dark:text-purple-400">
+                          <BedDouble className="w-4 h-4" />
+                          <span>Dorm Room Required</span>
+                        </div>
+                      )}
+
                       {cls.prerequisites.length > 0 && (
                         <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
                           <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
@@ -508,6 +519,13 @@ export default function TrainingRecordsPage() {
                         <Clock className="w-4 h-4" />
                         <span>Duration: {getDurationDisplay(selectedClassForSchedule.duration, selectedClassForSchedule.durationType)}</span>
                       </div>
+
+                      {selectedClassForSchedule.requiresDormRoom && (
+                        <div className="flex items-center gap-2 text-sm text-purple-600 dark:text-purple-400">
+                          <BedDouble className="w-4 h-4" />
+                          <span>Dorm Room Required</span>
+                        </div>
+                      )}
 
                       {selectedClassForSchedule.prerequisites.length > 0 && (
                         <div>
@@ -660,11 +678,18 @@ export default function TrainingRecordsPage() {
 
                           {classDetails && (
                             <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
-                              <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 mb-2">
+                              <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
                                 <Clock className="w-4 h-4" />
                                 <span>{getDurationDisplay(classDetails.duration, classDetails.durationType)}</span>
                               </div>
                               
+                              {classDetails.requiresDormRoom && (
+                                <div className="flex items-center gap-2 text-sm text-purple-600 dark:text-purple-400 mt-2">
+                                  <BedDouble className="w-4 h-4" />
+                                  <span>Dorm Room Required</span>
+                                </div>
+                              )}
+
                               {classDetails.prerequisites.length > 0 && (
                                 <div className="mb-3">
                                   <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
@@ -829,6 +854,29 @@ export default function TrainingRecordsPage() {
                     </p>
                   </div>
 
+                  <div className="flex items-center space-x-2 p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg">
+                    <Checkbox
+                      id="requiresDormRoom"
+                      checked={requiresDormRoom}
+                      onCheckedChange={(checked) => {
+                        setRequiresDormRoom(checked as boolean);
+                        setValue("requiresDormRoom", checked as boolean);
+                      }}
+                    />
+                    <div className="flex-1">
+                      <label
+                        htmlFor="requiresDormRoom"
+                        className="text-sm font-medium text-gray-900 dark:text-white cursor-pointer flex items-center gap-2"
+                      >
+                        <BedDouble className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                        Participants will need a dorm room
+                      </label>
+                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                        Check this if participants require overnight accommodation
+                      </p>
+                    </div>
+                  </div>
+
                   <div className="space-y-3">
                     <Label className="text-gray-900 dark:text-white">Class Materials & Curriculum</Label>
                     <div className="flex items-center gap-3">
@@ -896,6 +944,7 @@ export default function TrainingRecordsPage() {
                       onClick={() => {
                         reset();
                         setMaterials([]);
+                        setRequiresDormRoom(false);
                       }}
                     >
                       Clear Form
