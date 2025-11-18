@@ -399,6 +399,10 @@ export default function TrainingRecordsPage() {
     setRequiresDormRoom(false);
   };
 
+  const isClassScheduled = (classId: string): boolean => {
+    return scheduledClasses.some(sc => sc.classId === classId);
+  };
+
   if (!mounted) {
     return null;
   }
@@ -443,6 +447,11 @@ export default function TrainingRecordsPage() {
                       <CardTitle className="text-lg text-gray-900 dark:text-white flex items-start justify-between">
                         <span className="flex-1">{cls.name}</span>
                         <div className="flex gap-1">
+                          {isClassScheduled(cls.id) ? (
+                            <Calendar className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                          ) : (
+                            <Calendar className="w-5 h-5 text-red-600 dark:text-red-400" />
+                          )}
                           <Button
                             variant="ghost"
                             size="sm"
