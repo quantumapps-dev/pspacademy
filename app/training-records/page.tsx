@@ -323,7 +323,7 @@ export default function TrainingRecordsPage() {
           <TabsList className="grid w-full max-w-2xl grid-cols-3">
             <TabsTrigger value="create">Create Class</TabsTrigger>
             <TabsTrigger value="classes">All Classes</TabsTrigger>
-            <TabsTrigger value="roster">Class Roster</TabsTrigger>
+            <TabsTrigger value="roster">Schedule Class</TabsTrigger>
           </TabsList>
 
           <TabsContent value="classes" className="space-y-6">
