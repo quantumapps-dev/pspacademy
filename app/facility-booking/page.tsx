@@ -609,7 +609,7 @@ export default function FacilityBooking() {
                 {/* Date Selection */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label className="text-gray-900 dark:text-white">Check-in Date</Label>
+                    <Label className="text-gray-900 dark:text-white">Start Date</Label>
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button
@@ -648,7 +648,7 @@ export default function FacilityBooking() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-gray-900 dark:text-white">Check-out Date</Label>
+                    <Label className="text-gray-900 dark:text-white">End Date</Label>
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button
