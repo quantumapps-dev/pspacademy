@@ -20,7 +20,7 @@ const formSchema = z.object({
   lastName: z.string().min(2, "Last name must be at least 2 characters").max(50, "Last name must not exceed 50 characters"),
   suffix: z.string().max(10, "Suffix must not exceed 10 characters").optional().or(z.literal("")),
   email: z.string().email("Please enter a valid email address"),
-  phone: z.string().regex(/^($$)?[0-9]{3}($$)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4}$/, "Please enter a valid 10-digit US phone number"),
+  phone: z.string().regex(/^(\$)?[0-9]{3}(\$)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4}$/, "Please enter a valid 10-digit US phone number"),
   phoneType: z.enum(["Mobile", "Home", "Work"], {
     errorMap: () => ({ message: "Please select a phone type" })
   }),
@@ -41,7 +41,7 @@ const formSchema = z.object({
     return age >= 18;
   }, "You must be at least 18 years old to register"),
   currentEmployer: z.string().min(2, "Employer name is required"),
-  employerPhone: z.string().regex(/^($$)?[0-9]{3}($$)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4}$/, "Please enter a valid 10-digit US phone number"),
+  employerPhone: z.string().regex(/^(\$)?[0-9]{3}(\$)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4}$/, "Please enter a valid 10-digit US phone number"),
   employerEmail: z.string().email("Please enter a valid email address"),
   businessAddress: z.string().min(10, "Please enter a complete business address"),
   title: z.string().min(2, "Job title is required"),
@@ -117,7 +117,7 @@ export default function UserRegistration() {
     {
       title: "Personal Information",
       description: "Enter your basic information",
-      fields: ["firstName", "middleName", "lastName", "suffix"] as const,
+      fields: ["firstName", "middleName", "lastName", "suffix", "dateOfBirth"] as const,
     },
     {
       title: "Contact Information",
@@ -127,7 +127,7 @@ export default function UserRegistration() {
     {
       title: "Address Information",
       description: "Enter your address details",
-      fields: ["homeAddress", "mailingAddress", "dateOfBirth"] as const,
+      fields: ["homeAddress", "mailingAddress"] as const,
     },
     {
       title: "Employment Information",
@@ -349,6 +349,22 @@ export default function UserRegistration() {
                         </FormItem>
                       )}
                     />
+                    <FormField
+                      control={form.control}
+                      name="dateOfBirth"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-gray-900 dark:text-white">Date of Birth *</FormLabel>
+                          <FormControl>
+                            <Input type="date" {...field} className="bg-white dark:bg-gray-900" />
+                          </FormControl>
+                          <FormDescription className="text-gray-500 dark:text-gray-400">
+                            You must be at least 18 years old
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   </div>
                 )}
 
@@ -469,22 +485,6 @@ export default function UserRegistration() {
                           </FormControl>
                           <FormDescription className="text-gray-500 dark:text-gray-400">
                             Optional - Leave blank if same as home address
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="dateOfBirth"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-gray-900 dark:text-white">Date of Birth *</FormLabel>
-                          <FormControl>
-                            <Input type="date" {...field} className="bg-white dark:bg-gray-900" />
-                          </FormControl>
-                          <FormDescription className="text-gray-500 dark:text-gray-400">
-                            You must be at least 18 years old
                           </FormDescription>
                           <FormMessage />
                         </FormItem>
