@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Button } from "../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
-import { Plus, Search, Calendar, BookOpen, Building2, UserPlus } from 'lucide-react';
+import { Plus, Search, Calendar, BookOpen, Building2, UserPlus, Users } from 'lucide-react';
 
 export default function Home() {
   return (
@@ -18,7 +18,7 @@ export default function Home() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
           <Card className="hover:shadow-lg transition-shadow bg-white dark:bg-gray-800 border-0 shadow-lg">
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
@@ -54,6 +54,26 @@ export default function Home() {
                 <Button variant="outline" className="w-full" size="lg">
                   <UserPlus className="w-4 h-4 mr-2" />
                   Register Now
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+
+          <Card className="hover:shadow-lg transition-shadow bg-white dark:bg-gray-800 border-0 shadow-lg">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
+                <Users className="w-5 h-5 text-orange-600" />
+                Profiles
+              </CardTitle>
+              <CardDescription className="text-gray-600 dark:text-gray-300">
+                View and manage all user registrations and applications
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link href="/profiles">
+                <Button variant="outline" className="w-full" size="lg">
+                  <Users className="w-4 h-4 mr-2" />
+                  View Profiles
                 </Button>
               </Link>
             </CardContent>

@@ -48,6 +48,12 @@ export default function Header({ rightLogos = [] }: HeaderProps) {
               User Registration
             </Link>
             <Link
+              href="/profiles"
+              className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 px-3 py-2 text-sm font-medium transition-colors"
+            >
+              Profiles
+            </Link>
+            <Link
               href="/track-application"
               className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 px-3 py-2 text-sm font-medium transition-colors"
             >
@@ -127,6 +133,12 @@ export default function Header({ rightLogos = [] }: HeaderProps) {
               className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 block px-3 py-2 text-base font-medium"
             >
               User Registration
+            </Link>
+            <Link
+              href="/profiles"
+              className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 block px-3 py-2 text-base font-medium"
+            >
+              Profiles
             </Link>
             <Link
               href="/track-application"
