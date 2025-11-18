@@ -75,10 +75,10 @@ interface ScheduledClass {
 const reservationSchema = z.object({
   facilityType: z.enum(["dorm", "classroom", "range", "amphitheater", "auditorium", "gym", "pool", "other"]),
   facilityNumber: z.string().optional(),
-  guestName: z.string().min(2, "Name must be at least 2 characters").max(100).optional(),
-  guestEmail: z.string().email("Invalid email address").optional(),
-  instructorName: z.string().min(2, "Name must be at least 2 characters").max(100).optional(),
-  instructorEmail: z.string().email("Invalid email address").optional(),
+  guestName: z.string().optional(),
+  guestEmail: z.string().optional(),
+  instructorName: z.string().optional(),
+  instructorEmail: z.string().optional(),
   checkIn: z.date({ required_error: "Start date is required" }),
   checkOut: z.date({ required_error: "End date is required" }),
   purpose: z.string().min(10, "Purpose must be at least 10 characters").max(500),
@@ -86,13 +86,13 @@ const reservationSchema = z.object({
 }).refine((data) => {
   // If facility type is Dorm Room, guestName and guestEmail are required
   if (data.facilityType === "dorm") {
-    return !!(data.guestName && data.guestEmail);
+    return !!(data.guestName && data.guestName.length >= 2 && data.guestEmail);
   }
   // Otherwise, instructorName and instructorEmail are required
-  return !!(data.instructorName && data.instructorEmail);
+  return !!(data.instructorName && data.instructorName.length >= 2 && data.instructorEmail);
 }, {
   message: "Dorm rooms require guest information; other facilities require instructor information",
-  path: ["facilityType"], // Changed to point to facilityType instead of guestName
+  path: ["facilityType"],
 }).refine((data) => data.checkOut > data.checkIn, {
   message: "End date must be after start date",
   path: ["checkOut"],
