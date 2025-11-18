@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, BookOpen, Upload, Trash2, FileText, Clock, Calendar, Users, UserPlus, X, Building2 } from 'lucide-react';
+import { Plus, BookOpen, Upload, Trash2, FileText, Clock, Calendar, Users, UserPlus, X, Building2, Edit } from 'lucide-react';
 import { toast } from "sonner";
 
 // Types
@@ -93,6 +93,7 @@ export default function TrainingRecordsPage() {
   const [selectedParticipants, setSelectedParticipants] = useState<string[]>([]);
   const [currentScheduledClassId, setCurrentScheduledClassId] = useState<string | null>(null);
   const [isParticipantDialogOpen, setIsParticipantDialogOpen] = useState(false);
+  const [editingScheduledClassId, setEditingScheduledClassId] = useState<string | null>(null);
 
 
   const {
@@ -175,20 +176,39 @@ export default function TrainingRecordsPage() {
       return;
     }
 
-    const newScheduledClass: ScheduledClass = {
-      id: Date.now().toString(),
-      classId: data.classId,
-      className: selectedClass.name,
-      facilityType: data.facilityType,
-      maxAttendees: data.maxAttendees,
-      participants: [], // Initialize with empty participants array
-      createdAt: new Date().toISOString(),
-    };
+    if (editingScheduledClassId) {
+      // Update existing scheduled class
+      setScheduledClasses(prev => prev.map(sc => 
+        sc.id === editingScheduledClassId
+          ? {
+              ...sc,
+              classId: data.classId,
+              className: selectedClass.name,
+              facilityType: data.facilityType,
+              maxAttendees: data.maxAttendees,
+            }
+          : sc
+      ));
+      toast.success("Scheduled class updated successfully!");
+      setEditingScheduledClassId(null);
+    } else {
+      // Create new scheduled class
+      const newScheduledClass: ScheduledClass = {
+        id: Date.now().toString(),
+        classId: data.classId,
+        className: selectedClass.name,
+        facilityType: data.facilityType,
+        maxAttendees: data.maxAttendees,
+        participants: [], // Initialize with empty participants array
+        createdAt: new Date().toISOString(),
+      };
 
-    setScheduledClasses([...scheduledClasses, newScheduledClass]);
+      setScheduledClasses([...scheduledClasses, newScheduledClass]);
+      toast.success("Class scheduled successfully!");
+    }
+
     resetSchedule();
     setSelectedClassForSchedule(null);
-    toast.success("Class scheduled successfully!");
   };
 
   const handleClassSelection = (classId: string) => {
@@ -290,6 +310,26 @@ export default function TrainingRecordsPage() {
     toast.info("Participant removed");
   };
 
+
+  const editScheduledClass = (scheduledClass: ScheduledClass) => {
+    setEditingScheduledClassId(scheduledClass.id);
+    setValueSchedule("classId", scheduledClass.classId);
+    setValueSchedule("facilityType", scheduledClass.facilityType);
+    setValueSchedule("maxAttendees", scheduledClass.maxAttendees);
+    
+    const selectedClass = classes.find(c => c.id === scheduledClass.classId);
+    setSelectedClassForSchedule(selectedClass || null);
+    
+    // Scroll to form
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    toast.info("Editing scheduled class");
+  };
+
+  const cancelEdit = () => {
+    setEditingScheduledClassId(null);
+    resetSchedule();
+    setSelectedClassForSchedule(null);
+  };
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return "0 Bytes";
@@ -417,9 +457,13 @@ export default function TrainingRecordsPage() {
           <TabsContent value="roster" className="space-y-6">
             <Card className="bg-white dark:bg-gray-800">
               <CardHeader>
-                <CardTitle className="text-gray-900 dark:text-white">Schedule a Class</CardTitle>
+                <CardTitle className="text-gray-900 dark:text-white">
+                  {editingScheduledClassId ? "Edit Scheduled Class" : "Schedule a Class"}
+                </CardTitle>
                 <CardDescription className="text-gray-600 dark:text-gray-300">
-                  Create a scheduled session for an available class
+                  {editingScheduledClassId 
+                    ? "Update the details of the scheduled class session" 
+                    : "Create a scheduled session for an available class"}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -528,19 +572,29 @@ export default function TrainingRecordsPage() {
                   </div>
 
                   <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                    {editingScheduledClassId && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={cancelEdit}
+                      >
+                        Cancel Edit
+                      </Button>
+                    )}
                     <Button
                       type="button"
                       variant="outline"
                       onClick={() => {
                         resetSchedule();
                         setSelectedClassForSchedule(null);
+                        setEditingScheduledClassId(null);
                       }}
                     >
                       Clear Form
                     </Button>
                     <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
                       <Calendar className="w-4 h-4 mr-2" />
-                      Schedule Class
+                      {editingScheduledClassId ? "Update Class" : "Schedule Class"}
                     </Button>
                   </div>
                 </form>
@@ -573,14 +627,24 @@ export default function TrainingRecordsPage() {
                         <CardHeader>
                           <CardTitle className="text-lg text-gray-900 dark:text-white flex items-start justify-between">
                             <span className="flex-1">{scheduled.className}</span>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => deleteScheduledClass(scheduled.id)}
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
+                            <div className="flex gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => editScheduledClass(scheduled)}
+                                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => deleteScheduledClass(scheduled.id)}
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
                           </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-3">
