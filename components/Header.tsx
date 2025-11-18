@@ -7,7 +7,7 @@ import { Moon, Sun } from 'lucide-react';
 import { Button } from "./ui/button";
 
 interface HeaderProps {
-  rightLogos?: string[]; // Array of logo URLs (0, 1, or 2 logos)
+  rightLogos?: string[];
 }
 
 export default function Header({ rightLogos = [] }: HeaderProps) {
@@ -17,7 +17,6 @@ export default function Header({ rightLogos = [] }: HeaderProps) {
     <header className="bg-white dark:bg-gray-900 shadow-sm border-b border-gray-200 dark:border-gray-700">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          {/* Left side - Logo */}
           <div className="flex items-center">
             <Link href="/" className="flex items-center space-x-2">
               <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
@@ -29,7 +28,6 @@ export default function Header({ rightLogos = [] }: HeaderProps) {
             </Link>
           </div>
 
-          {/* Center - Navigation */}
           <nav className="hidden md:flex items-center space-x-8">
             <Link
               href="/"
@@ -42,6 +40,12 @@ export default function Header({ rightLogos = [] }: HeaderProps) {
               className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 px-3 py-2 text-sm font-medium transition-colors"
             >
               New Application
+            </Link>
+            <Link
+              href="/user-registration"
+              className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 px-3 py-2 text-sm font-medium transition-colors"
+            >
+              User Registration
             </Link>
             <Link
               href="/track-application"
@@ -63,7 +67,6 @@ export default function Header({ rightLogos = [] }: HeaderProps) {
             </Link>
           </nav>
 
-          {/* Right side - Optional logos and theme toggle */}
           <div className="flex items-center space-x-4">
             {rightLogos.slice(0, 2).map((logoUrl, index) => (
               <div key={index} className="w-8 h-8 relative">
@@ -76,7 +79,6 @@ export default function Header({ rightLogos = [] }: HeaderProps) {
               </div>
             ))}
             
-            {/* Theme toggle */}
             <Button
               variant="ghost"
               size="sm"
@@ -88,7 +90,6 @@ export default function Header({ rightLogos = [] }: HeaderProps) {
               <span className="sr-only">Toggle theme</span>
             </Button>
             
-            {/* Mobile menu button */}
             <button className="md:hidden p-2 rounded-md text-gray-700 hover:text-blue-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:text-blue-400 dark:hover:bg-gray-800">
               <svg
                 className="w-6 h-6"
@@ -107,7 +108,6 @@ export default function Header({ rightLogos = [] }: HeaderProps) {
           </div>
         </div>
 
-        {/* Mobile navigation menu */}
         <div className="md:hidden border-t border-gray-200 dark:border-gray-700 pt-4 pb-3">
           <div className="flex flex-col space-y-1">
             <Link
@@ -121,6 +121,12 @@ export default function Header({ rightLogos = [] }: HeaderProps) {
               className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 block px-3 py-2 text-base font-medium"
             >
               New Application
+            </Link>
+            <Link
+              href="/user-registration"
+              className="text-gray-700 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 block px-3 py-2 text-base font-medium"
+            >
+              User Registration
             </Link>
             <Link
               href="/track-application"
