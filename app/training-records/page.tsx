@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, BookOpen, Upload, Trash2, FileText, Clock, Calendar } from 'lucide-react';
+import { Plus, BookOpen, Upload, Trash2, FileText, Clock, Calendar, Users } from 'lucide-react';
 import { toast } from "sonner";
 
 // Types
@@ -34,6 +34,16 @@ interface TrainingClass {
   createdAt: string;
 }
 
+// New interface for ScheduledClass
+interface ScheduledClass {
+  id: string;
+  classId: string;
+  className: string;
+  startDate: string;
+  maxAttendees: number;
+  createdAt: string;
+}
+
 // Zod schema for class creation
 const classSchema = z.object({
   name: z.string().min(3, "Class name must be at least 3 characters").max(100, "Class name is too long"),
@@ -45,12 +55,22 @@ const classSchema = z.object({
   prerequisites: z.string().optional(),
 });
 
+// Zod schema for scheduled class
+const scheduledClassSchema = z.object({
+  classId: z.string().min(1, "Please select a class"),
+  startDate: z.string().min(1, "Start date is required"),
+  maxAttendees: z.coerce.number().min(1, "Must have at least 1 attendee").max(100, "Cannot exceed 100 attendees"),
+});
+
 type ClassFormData = z.infer<typeof classSchema>;
+type ScheduledClassFormData = z.infer<typeof scheduledClassSchema>;
 
 export default function TrainingRecordsPage() {
   const [classes, setClasses] = useState<TrainingClass[]>([]);
   const [selectedClass, setSelectedClass] = useState<TrainingClass | null>(null);
   const [materials, setMaterials] = useState<ClassMaterial[]>([]);
+  const [scheduledClasses, setScheduledClasses] = useState<ScheduledClass[]>([]);
+  const [selectedClassForSchedule, setSelectedClassForSchedule] = useState<TrainingClass | null>(null);
   const [mounted, setMounted] = useState(false);
 
   const {
@@ -63,7 +83,16 @@ export default function TrainingRecordsPage() {
     resolver: zodResolver(classSchema),
   });
 
-  // Load data from localStorage on mount
+  const {
+    register: registerSchedule,
+    handleSubmit: handleSubmitSchedule,
+    reset: resetSchedule,
+    setValue: setValueSchedule,
+    formState: { errors: errorsSchedule },
+  } = useForm<ScheduledClassFormData>({
+    resolver: zodResolver(scheduledClassSchema),
+  });
+
   useEffect(() => {
     setMounted(true);
     if (typeof window !== "undefined") {
@@ -71,15 +100,24 @@ export default function TrainingRecordsPage() {
       if (storedClasses) {
         setClasses(JSON.parse(storedClasses));
       }
+      const storedScheduled = localStorage.getItem("scheduled-classes");
+      if (storedScheduled) {
+        setScheduledClasses(JSON.parse(storedScheduled));
+      }
     }
   }, []);
 
-  // Save classes to localStorage whenever they change
   useEffect(() => {
     if (mounted && typeof window !== "undefined") {
       localStorage.setItem("training-classes", JSON.stringify(classes));
     }
   }, [classes, mounted]);
+
+  useEffect(() => {
+    if (mounted && typeof window !== "undefined") {
+      localStorage.setItem("scheduled-classes", JSON.stringify(scheduledClasses));
+    }
+  }, [scheduledClasses, mounted]);
 
   const onSubmit = (data: ClassFormData) => {
     const prerequisites = data.prerequisites
@@ -101,6 +139,34 @@ export default function TrainingRecordsPage() {
     setMaterials([]);
     reset();
     toast.success("Class created successfully!");
+  };
+
+  const onScheduleSubmit = (data: ScheduledClassFormData) => {
+    const selectedClass = classes.find(c => c.id === data.classId);
+    if (!selectedClass) {
+      toast.error("Selected class not found");
+      return;
+    }
+
+    const newScheduledClass: ScheduledClass = {
+      id: Date.now().toString(),
+      classId: data.classId,
+      className: selectedClass.name,
+      startDate: data.startDate,
+      maxAttendees: data.maxAttendees,
+      createdAt: new Date().toISOString(),
+    };
+
+    setScheduledClasses([...scheduledClasses, newScheduledClass]);
+    resetSchedule();
+    setSelectedClassForSchedule(null);
+    toast.success("Class scheduled successfully!");
+  };
+
+  const handleClassSelection = (classId: string) => {
+    setValueSchedule("classId", classId);
+    const selected = classes.find(c => c.id === classId);
+    setSelectedClassForSchedule(selected || null);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -127,6 +193,11 @@ export default function TrainingRecordsPage() {
   const deleteClass = (id: string) => {
     setClasses(classes.filter((c) => c.id !== id));
     toast.success("Class deleted successfully!");
+  };
+
+  const deleteScheduledClass = (id: string) => {
+    setScheduledClasses(scheduledClasses.filter((c) => c.id !== id));
+    toast.success("Scheduled class deleted successfully!");
   };
 
   const formatFileSize = (bytes: number): string => {
@@ -158,12 +229,12 @@ export default function TrainingRecordsPage() {
         </div>
 
         <Tabs defaultValue="classes" className="space-y-6">
-          <TabsList className="grid w-full max-w-md grid-cols-2">
+          <TabsList className="grid w-full max-w-2xl grid-cols-3">
             <TabsTrigger value="classes">All Classes</TabsTrigger>
+            <TabsTrigger value="roster">Class Roster</TabsTrigger>
             <TabsTrigger value="create">Create Class</TabsTrigger>
           </TabsList>
 
-          {/* All Classes Tab */}
           <TabsContent value="classes" className="space-y-6">
             {classes.length === 0 ? (
               <Card className="bg-white dark:bg-gray-800">
@@ -252,7 +323,215 @@ export default function TrainingRecordsPage() {
             )}
           </TabsContent>
 
-          {/* Create Class Tab */}
+          <TabsContent value="roster" className="space-y-6">
+            <Card className="bg-white dark:bg-gray-800">
+              <CardHeader>
+                <CardTitle className="text-gray-900 dark:text-white">Schedule a Class</CardTitle>
+                <CardDescription className="text-gray-600 dark:text-gray-300">
+                  Create a scheduled session for an available class
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleSubmitSchedule(onScheduleSubmit)} className="space-y-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="classId" className="text-gray-900 dark:text-white">
+                      Select Class <span className="text-red-500">*</span>
+                    </Label>
+                    <Select onValueChange={handleClassSelection}>
+                      <SelectTrigger className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white">
+                        <SelectValue placeholder="Choose a class" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {classes.length === 0 ? (
+                          <div className="p-4 text-center text-sm text-gray-500">
+                            No classes available. Create a class first.
+                          </div>
+                        ) : (
+                          classes.map((cls) => (
+                            <SelectItem key={cls.id} value={cls.id}>
+                              {cls.name}
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
+                    {errorsSchedule.classId && (
+                      <p className="text-sm text-red-600 dark:text-red-400">{errorsSchedule.classId.message}</p>
+                    )}
+                  </div>
+
+                  {selectedClassForSchedule && (
+                    <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg space-y-3">
+                      <h3 className="font-semibold text-gray-900 dark:text-white">
+                        {selectedClassForSchedule.name}
+                      </h3>
+                      <p className="text-sm text-gray-700 dark:text-gray-300">
+                        {selectedClassForSchedule.description}
+                      </p>
+                      
+                      <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                        <Clock className="w-4 h-4" />
+                        <span>Duration: {getDurationDisplay(selectedClassForSchedule.duration, selectedClassForSchedule.durationType)}</span>
+                      </div>
+
+                      {selectedClassForSchedule.prerequisites.length > 0 && (
+                        <div>
+                          <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                            Prerequisites:
+                          </p>
+                          <div className="flex flex-wrap gap-1">
+                            {selectedClassForSchedule.prerequisites.map((prereq, idx) => (
+                              <span
+                                key={idx}
+                                className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 px-2 py-1 rounded"
+                              >
+                                {prereq}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="startDate" className="text-gray-900 dark:text-white">
+                        Class Start Date <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="startDate"
+                        type="date"
+                        {...registerSchedule("startDate")}
+                        min={new Date().toISOString().split('T')[0]}
+                        className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white"
+                      />
+                      {errorsSchedule.startDate && (
+                        <p className="text-sm text-red-600 dark:text-red-400">{errorsSchedule.startDate.message}</p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="maxAttendees" className="text-gray-900 dark:text-white">
+                        Max Number of Attendees <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="maxAttendees"
+                        type="number"
+                        {...registerSchedule("maxAttendees")}
+                        placeholder="e.g., 30"
+                        min="1"
+                        max="100"
+                        className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white"
+                      />
+                      {errorsSchedule.maxAttendees && (
+                        <p className="text-sm text-red-600 dark:text-red-400">{errorsSchedule.maxAttendees.message}</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        resetSchedule();
+                        setSelectedClassForSchedule(null);
+                      }}
+                    >
+                      Clear Form
+                    </Button>
+                    <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
+                      <Calendar className="w-4 h-4 mr-2" />
+                      Schedule Class
+                    </Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+
+            <div className="space-y-4">
+              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                Scheduled Classes
+              </h2>
+              
+              {scheduledClasses.length === 0 ? (
+                <Card className="bg-white dark:bg-gray-800">
+                  <CardContent className="flex flex-col items-center justify-center py-12">
+                    <Users className="w-16 h-16 text-gray-400 mb-4" />
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                      No Scheduled Classes
+                    </h3>
+                    <p className="text-gray-600 dark:text-gray-300">
+                      Schedule your first class session above
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {scheduledClasses.map((scheduled) => {
+                    const classDetails = classes.find(c => c.id === scheduled.classId);
+                    return (
+                      <Card key={scheduled.id} className="bg-white dark:bg-gray-800 hover:shadow-lg transition-shadow">
+                        <CardHeader>
+                          <CardTitle className="text-lg text-gray-900 dark:text-white flex items-start justify-between">
+                            <span className="flex-1">{scheduled.className}</span>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => deleteScheduledClass(scheduled.id)}
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                            <Calendar className="w-4 h-4" />
+                            <span>Start: {new Date(scheduled.startDate).toLocaleDateString()}</span>
+                          </div>
+                          
+                          <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+                            <Users className="w-4 h-4" />
+                            <span>Max Attendees: {scheduled.maxAttendees}</span>
+                          </div>
+
+                          {classDetails && (
+                            <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+                              <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300 mb-2">
+                                <Clock className="w-4 h-4" />
+                                <span>{getDurationDisplay(classDetails.duration, classDetails.durationType)}</span>
+                              </div>
+                              
+                              {classDetails.prerequisites.length > 0 && (
+                                <div>
+                                  <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                                    Prerequisites:
+                                  </p>
+                                  <div className="flex flex-wrap gap-1">
+                                    {classDetails.prerequisites.map((prereq, idx) => (
+                                      <span
+                                        key={idx}
+                                        className="text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 px-2 py-1 rounded"
+                                      >
+                                        {prereq}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </TabsContent>
+
           <TabsContent value="create">
             <Card className="bg-white dark:bg-gray-800">
               <CardHeader>
@@ -263,7 +542,6 @@ export default function TrainingRecordsPage() {
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-                  {/* Class Name */}
                   <div className="space-y-2">
                     <Label htmlFor="name" className="text-gray-900 dark:text-white">
                       Class Name <span className="text-red-500">*</span>
@@ -279,7 +557,6 @@ export default function TrainingRecordsPage() {
                     )}
                   </div>
 
-                  {/* Description */}
                   <div className="space-y-2">
                     <Label htmlFor="description" className="text-gray-900 dark:text-white">
                       Class Description <span className="text-red-500">*</span>
@@ -296,7 +573,6 @@ export default function TrainingRecordsPage() {
                     )}
                   </div>
 
-                  {/* Duration */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="duration" className="text-gray-900 dark:text-white">
@@ -335,7 +611,6 @@ export default function TrainingRecordsPage() {
                     </div>
                   </div>
 
-                  {/* Prerequisites */}
                   <div className="space-y-2">
                     <Label htmlFor="prerequisites" className="text-gray-900 dark:text-white">
                       Prerequisites (comma-separated)
@@ -351,7 +626,6 @@ export default function TrainingRecordsPage() {
                     </p>
                   </div>
 
-                  {/* Upload Materials */}
                   <div className="space-y-3">
                     <Label className="text-gray-900 dark:text-white">Class Materials & Curriculum</Label>
                     <div className="flex items-center gap-3">
@@ -374,7 +648,6 @@ export default function TrainingRecordsPage() {
                       </p>
                     </div>
 
-                    {/* Uploaded Materials List */}
                     {materials.length > 0 && (
                       <div className="space-y-2 p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
                         <p className="text-sm font-semibold text-gray-700 dark:text-gray-300">
@@ -413,7 +686,6 @@ export default function TrainingRecordsPage() {
                     )}
                   </div>
 
-                  {/* Submit Button */}
                   <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
                     <Button
                       type="button"
