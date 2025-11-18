@@ -70,6 +70,7 @@ const userSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
   email: z.string().email("Invalid email address"),
   fullName: z.string().min(2, "Full name is required"),
+  cellNumber: z.string().regex(/^($$)?[0-9]{3}($$)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4}$/, "Invalid phone number format"),
   role: z.string().min(1, "Role is required"),
   status: z.enum(["Active", "Inactive"])
 });
@@ -81,6 +82,7 @@ interface User {
   username: string;
   email: string;
   fullName: string;
+  cellNumber: string;
   role: string;
   status: "Active" | "Inactive";
   createdAt: string;
@@ -261,6 +263,7 @@ export default function UserAdministration() {
     setValue("username", user.username);
     setValue("email", user.email);
     setValue("fullName", user.fullName);
+    setValue("cellNumber", user.cellNumber);
     setValue("role", user.role);
     setValue("status", user.status);
     setIsUserDialogOpen(true);
@@ -376,6 +379,7 @@ export default function UserAdministration() {
                                   <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
                                     <p><strong>Username:</strong> {user.username}</p>
                                     <p><strong>Email:</strong> {user.email}</p>
+                                    <p><strong>Cell Number (MFA):</strong> {user.cellNumber}</p>
                                     <p><strong>Role:</strong> {user.role}</p>
                                     <p className="text-xs text-gray-500">
                                       Created: {new Date(user.createdAt).toLocaleDateString()}
@@ -564,6 +568,18 @@ export default function UserAdministration() {
               />
               {errors.email && (
                 <p className="text-sm text-red-500">{errors.email.message}</p>
+              )}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="cellNumber">Cell Number (for MFA)</Label>
+              <Input
+                id="cellNumber"
+                type="tel"
+                {...register("cellNumber")}
+                placeholder="(555) 123-4567"
+              />
+              {errors.cellNumber && (
+                <p className="text-sm text-red-500">{errors.cellNumber.message}</p>
               )}
             </div>
             <div className="grid grid-cols-2 gap-4">
