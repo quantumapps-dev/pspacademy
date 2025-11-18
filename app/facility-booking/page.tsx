@@ -334,6 +334,8 @@ export default function FacilityBooking() {
 
   // Handle reservation submission
   const onReservationSubmit = (data: ReservationFormData) => {
+    console.log("[v0] onReservationSubmit called with data:", data);
+    
     if (typeof window === "undefined") return;
 
     // Check for conflicts before saving
@@ -344,26 +346,40 @@ export default function FacilityBooking() {
       data.checkOut
     );
 
+    console.log("[v0] Conflict check result:", hasConflict);
+
     if (hasConflict) {
       toast.error("This facility is already booked for the selected dates. Please choose different dates.");
       return;
     }
 
+    const contactName = data.facilityType === "dorm" ? data.guestName! : data.instructorName!;
+    const contactEmail = data.facilityType === "dorm" ? data.guestEmail! : data.instructorEmail!;
+
+    console.log("[v0] Creating reservation with contactName:", contactName, "contactEmail:", contactEmail);
+
     const newReservation: Reservation = {
       id: `RES-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      ...data,
-      guestName: data.facilityType === "dorm" ? data.guestName! : data.instructorName!,
-      guestEmail: data.facilityType === "dorm" ? data.guestEmail! : data.instructorEmail!,
+      facilityType: data.facilityType,
+      facilityNumber: data.facilityNumber,
+      guestName: contactName,
+      guestEmail: contactEmail,
       checkIn: data.checkIn.toISOString(),
       checkOut: data.checkOut.toISOString(),
+      purpose: data.purpose,
+      specialRequests: data.specialRequests,
       status: "active",
       createdAt: new Date().toISOString(),
       needsCleaning: false,
     };
 
+    console.log("[v0] New reservation object:", newReservation);
+
     const updatedReservations = [...reservations, newReservation];
     setReservations(updatedReservations);
     localStorage.setItem("psp_reservations", JSON.stringify(updatedReservations));
+
+    console.log("[v0] Reservation saved to localStorage, total reservations:", updatedReservations.length);
 
     toast.success("Reservation created successfully!");
     reservationForm.reset();
