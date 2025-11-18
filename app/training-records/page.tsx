@@ -39,6 +39,7 @@ interface TrainingClass {
 
 interface ScheduledClass {
   id: string;
+  uniqueClassId: string;
   classId: string;
   className: string;
   facilityType: string;
@@ -215,6 +216,8 @@ export default function TrainingRecordsPage() {
       return;
     }
 
+    const uniqueClassId = `SCH-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+
     if (editingScheduledClassId) {
       // Update existing scheduled class
       setScheduledClasses(prev => prev.map(sc => 
@@ -225,6 +228,7 @@ export default function TrainingRecordsPage() {
               className: selectedClass.name,
               facilityType: data.facilityType,
               maxAttendees: data.maxAttendees,
+              // Keep the original uniqueClassId when editing
             }
           : sc
       ));
@@ -234,6 +238,7 @@ export default function TrainingRecordsPage() {
       // Create new scheduled class
       const newScheduledClass: ScheduledClass = {
         id: Date.now().toString(),
+        uniqueClassId: uniqueClassId,
         classId: data.classId,
         className: selectedClass.name,
         facilityType: data.facilityType,
@@ -415,10 +420,9 @@ export default function TrainingRecordsPage() {
   const hasFacilityBooking = (scheduledClass: ScheduledClass): boolean => {
     if (typeof window === "undefined") return false;
     
-    // Check if there's an active reservation matching the scheduled class's facility type
     return reservations.some(reservation => 
       reservation.status === "active" && 
-      reservation.facilityType.toLowerCase() === scheduledClass.facilityType.toLowerCase()
+      reservation.scheduledClassId === scheduledClass.uniqueClassId
     );
   };
 
@@ -762,6 +766,15 @@ export default function TrainingRecordsPage() {
                           </CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-3">
+                          <div className="p-3 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
+                            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1">
+                              Unique Class ID
+                            </p>
+                            <p className="text-sm font-mono text-gray-900 dark:text-white">
+                              {scheduled.uniqueClassId}
+                            </p>
+                          </div>
+
                           <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
                             <Building2 className="w-4 h-4" />
                             <span>Facility: {scheduled.facilityType}</span>

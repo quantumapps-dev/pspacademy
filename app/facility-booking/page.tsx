@@ -57,12 +57,14 @@ interface Reservation {
   purpose: string;
   specialRequests?: string;
   status: "active" | "completed" | "cancelled";
+  scheduledClassId?: string;
   createdAt: string;
   needsCleaning?: boolean;
 }
 
 interface ScheduledClass {
   id: string;
+  uniqueClassId: string;
   classId: string;
   className: string;
   facilityType: string;
@@ -83,6 +85,8 @@ const reservationSchema = z.object({
   checkOut: z.date({ required_error: "End date is required" }),
   purpose: z.string().min(10, "Purpose must be at least 10 characters").max(500),
   specialRequests: z.string().max(500).optional(),
+  // Added scheduledClassId to the schema
+  scheduledClassId: z.string().optional(),
 }).refine((data) => {
   // If facility type is Dorm Room, guestName and guestEmail are required
   if (data.facilityType === "dorm") {
@@ -177,6 +181,7 @@ export default function FacilityBooking() {
       instructorEmail: "",
       purpose: "",
       specialRequests: "",
+      scheduledClassId: "", // Initialize scheduledClassId
     },
   });
 
@@ -274,17 +279,16 @@ export default function FacilityBooking() {
     if (typeof window === "undefined") return [];
     
     return scheduledClasses.filter(scheduledClass => {
-      // Check if there's NO active reservation matching the scheduled class's facility type
       const hasBooking = reservations.some(reservation => 
         reservation.status === "active" && 
-        reservation.facilityType.toLowerCase() === scheduledClass.facilityType.toLowerCase()
+        reservation.scheduledClassId === scheduledClass.uniqueClassId
       );
       return !hasBooking;
     });
   };
 
   const handleScheduledClassSelection = (scheduledClassId: string) => {
-    const selectedScheduledClass = scheduledClasses.find(sc => sc.id === scheduledClassId);
+    const selectedScheduledClass = scheduledClasses.find(sc => sc.uniqueClassId === scheduledClassId);
     if (!selectedScheduledClass) return;
 
     // Map facility type to match reservation schema
@@ -302,8 +306,10 @@ export default function FacilityBooking() {
     reservationForm.setValue("facilityType", facilityType);
     setSelectedFacility({ type: facilityType });
     
-    // Set purpose with class name
-    reservationForm.setValue("purpose", `Training class: ${selectedScheduledClass.className}`);
+    // Set purpose with class name and unique ID
+    reservationForm.setValue("purpose", `Training class: ${selectedScheduledClass.className} (${selectedScheduledClass.uniqueClassId})`);
+    
+    reservationForm.setValue("scheduledClassId" as any, selectedScheduledClass.uniqueClassId);
     
     toast.info(`Selected class: ${selectedScheduledClass.className}`);
   };
@@ -369,6 +375,7 @@ export default function FacilityBooking() {
       purpose: data.purpose,
       specialRequests: data.specialRequests,
       status: "active",
+      scheduledClassId: (data as any).scheduledClassId,
       createdAt: new Date().toISOString(),
       needsCleaning: false,
     };
@@ -579,11 +586,11 @@ export default function FacilityBooking() {
                       </SelectTrigger>
                       <SelectContent>
                         {getUnbookedScheduledClasses().map((scheduledClass) => (
-                          <SelectItem key={scheduledClass.id} value={scheduledClass.id}>
+                          <SelectItem key={scheduledClass.uniqueClassId} value={scheduledClass.uniqueClassId}>
                             <div className="flex flex-col">
                               <span className="font-medium">{scheduledClass.className}</span>
                               <span className="text-xs text-gray-500">
-                                {scheduledClass.facilityType} • {scheduledClass.participants.length}/{scheduledClass.maxAttendees} enrolled
+                                {scheduledClass.facilityType} • {scheduledClass.participants.length}/{scheduledClass.maxAttendees} enrolled • ID: {scheduledClass.uniqueClassId}
                               </span>
                             </div>
                           </SelectItem>
@@ -605,6 +612,7 @@ export default function FacilityBooking() {
                         reservationForm.setValue("facilityNumber", undefined);
                         setCheckInDate(undefined);
                         setCheckOutDate(undefined);
+                        reservationForm.setValue("scheduledClassId", ""); // Clear scheduled class ID
                       }
                     }}
                   >
@@ -918,6 +926,11 @@ export default function FacilityBooking() {
                             Needs Cleaning
                           </Badge>
                         )}
+                        {reservation.scheduledClassId && (
+                          <Badge variant="outline" className="bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-400">
+                            Scheduled Class
+                          </Badge>
+                        )}
                       </div>
                     </div>
                   </CardHeader>
@@ -950,6 +963,12 @@ export default function FacilityBooking() {
                         <div>
                           <p className="text-gray-500 dark:text-gray-400 text-sm">Special Requests</p>
                           <p className="text-gray-900 dark:text-white">{reservation.specialRequests}</p>
+                        </div>
+                      )}
+                       {reservation.scheduledClassId && (
+                        <div>
+                          <p className="text-gray-500 dark:text-gray-400 text-sm">Linked Class ID</p>
+                          <p className="text-gray-900 dark:text-white font-medium">{reservation.scheduledClassId}</p>
                         </div>
                       )}
                       <div className="flex gap-2 pt-2">
