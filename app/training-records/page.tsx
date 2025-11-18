@@ -96,6 +96,7 @@ export default function TrainingRecordsPage() {
   const [currentScheduledClassId, setCurrentScheduledClassId] = useState<string | null>(null);
   const [isParticipantDialogOpen, setIsParticipantDialogOpen] = useState(false);
   const [editingScheduledClassId, setEditingScheduledClassId] = useState<string | null>(null);
+  const [editingClassId, setEditingClassId] = useState<string | null>(null);
   const [requiresDormRoom, setRequiresDormRoom] = useState(false);
 
   const {
@@ -154,23 +155,45 @@ export default function TrainingRecordsPage() {
       ? data.prerequisites.split(",").map((p) => p.trim()).filter((p) => p.length > 0)
       : [];
 
-    const newClass: TrainingClass = {
-      id: Date.now().toString(),
-      name: data.name,
-      description: data.description,
-      duration: data.duration,
-      durationType: data.durationType,
-      prerequisites,
-      materials: materials,
-      requiresDormRoom: data.requiresDormRoom,
-      createdAt: new Date().toISOString(),
-    };
+    if (editingClassId) {
+      // Update existing class
+      setClasses(prev => prev.map(cls => 
+        cls.id === editingClassId
+          ? {
+              ...cls,
+              name: data.name,
+              description: data.description,
+              duration: data.duration,
+              durationType: data.durationType,
+              prerequisites,
+              materials: materials,
+              requiresDormRoom: data.requiresDormRoom,
+            }
+          : cls
+      ));
+      toast.success("Class updated successfully!");
+      setEditingClassId(null);
+    } else {
+      // Create new class
+      const newClass: TrainingClass = {
+        id: Date.now().toString(),
+        name: data.name,
+        description: data.description,
+        duration: data.duration,
+        durationType: data.durationType,
+        prerequisites,
+        materials: materials,
+        requiresDormRoom: data.requiresDormRoom,
+        createdAt: new Date().toISOString(),
+      };
 
-    setClasses([...classes, newClass]);
+      setClasses([...classes, newClass]);
+      toast.success("Class created successfully!");
+    }
+
     setMaterials([]);
     reset();
     setRequiresDormRoom(false);
-    toast.success("Class created successfully!");
   };
 
   const onScheduleSubmit = (data: ScheduledClassFormData) => {
@@ -347,6 +370,35 @@ export default function TrainingRecordsPage() {
     return `${duration} ${type}${duration > 1 ? "" : ""}`;
   };
 
+  const editClass = (cls: TrainingClass) => {
+    setEditingClassId(cls.id);
+    setValue("name", cls.name);
+    setValue("description", cls.description);
+    setValue("duration", cls.duration);
+    setValue("durationType", cls.durationType);
+    setValue("prerequisites", cls.prerequisites.join(", "));
+    setValue("requiresDormRoom", cls.requiresDormRoom);
+    setRequiresDormRoom(cls.requiresDormRoom);
+    setMaterials(cls.materials);
+    
+    // Switch to Create Class tab
+    const createTab = document.querySelector('[value="create"]') as HTMLButtonElement;
+    if (createTab) {
+      createTab.click();
+    }
+    
+    // Scroll to form
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    toast.info("Editing class");
+  };
+
+  const cancelClassEdit = () => {
+    setEditingClassId(null);
+    reset();
+    setMaterials([]);
+    setRequiresDormRoom(false);
+  };
+
   if (!mounted) {
     return null;
   }
@@ -390,14 +442,24 @@ export default function TrainingRecordsPage() {
                     <CardHeader>
                       <CardTitle className="text-lg text-gray-900 dark:text-white flex items-start justify-between">
                         <span className="flex-1">{cls.name}</span>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => deleteClass(cls.id)}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => editClass(cls)}
+                            className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => deleteClass(cls.id)}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </CardTitle>
                       <CardDescription className="text-gray-600 dark:text-gray-300 line-clamp-2">
                         {cls.description}
@@ -763,9 +825,13 @@ export default function TrainingRecordsPage() {
           <TabsContent value="create">
             <Card className="bg-white dark:bg-gray-800">
               <CardHeader>
-                <CardTitle className="text-gray-900 dark:text-white">Create New Training Class</CardTitle>
+                <CardTitle className="text-gray-900 dark:text-white">
+                  {editingClassId ? "Edit Training Class" : "Create New Training Class"}
+                </CardTitle>
                 <CardDescription className="text-gray-600 dark:text-gray-300">
-                  Add a new class with curriculum materials and prerequisites
+                  {editingClassId 
+                    ? "Update the class details, materials, and prerequisites" 
+                    : "Add a new class with curriculum materials and prerequisites"}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -938,6 +1004,15 @@ export default function TrainingRecordsPage() {
                   </div>
 
                   <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
+                    {editingClassId && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={cancelClassEdit}
+                      >
+                        Cancel Edit
+                      </Button>
+                    )}
                     <Button
                       type="button"
                       variant="outline"
@@ -945,13 +1020,14 @@ export default function TrainingRecordsPage() {
                         reset();
                         setMaterials([]);
                         setRequiresDormRoom(false);
+                        setEditingClassId(null); // Ensure editing state is reset on clear
                       }}
                     >
                       Clear Form
                     </Button>
                     <Button type="submit" className="bg-blue-600 hover:bg-blue-700">
                       <Plus className="w-4 h-4 mr-2" />
-                      Create Class
+                      {editingClassId ? "Update Class" : "Create Class"}
                     </Button>
                   </div>
                 </form>
