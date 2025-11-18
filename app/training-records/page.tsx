@@ -11,7 +11,9 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, BookOpen, Upload, Trash2, FileText, Clock, Calendar, Users } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Plus, BookOpen, Upload, Trash2, FileText, Clock, Calendar, Users, UserPlus, X } from 'lucide-react';
 import { toast } from "sonner";
 
 // Types
@@ -34,14 +36,29 @@ interface TrainingClass {
   createdAt: string;
 }
 
-// New interface for ScheduledClass
 interface ScheduledClass {
   id: string;
   classId: string;
   className: string;
   startDate: string;
   maxAttendees: number;
+  participants: Participant[];
   createdAt: string;
+}
+
+interface Participant {
+  id: string;
+  name: string;
+  email: string;
+  type: string;
+}
+
+interface Profile {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  type: string;
 }
 
 // Zod schema for class creation
@@ -72,6 +89,11 @@ export default function TrainingRecordsPage() {
   const [scheduledClasses, setScheduledClasses] = useState<ScheduledClass[]>([]);
   const [selectedClassForSchedule, setSelectedClassForSchedule] = useState<TrainingClass | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [profiles, setProfiles] = useState<Profile[]>([]);
+  const [selectedParticipants, setSelectedParticipants] = useState<string[]>([]);
+  const [currentScheduledClassId, setCurrentScheduledClassId] = useState<string | null>(null);
+  const [isParticipantDialogOpen, setIsParticipantDialogOpen] = useState(false);
+
 
   const {
     register,
@@ -103,6 +125,11 @@ export default function TrainingRecordsPage() {
       const storedScheduled = localStorage.getItem("scheduled-classes");
       if (storedScheduled) {
         setScheduledClasses(JSON.parse(storedScheduled));
+      }
+      const storedProfiles = localStorage.getItem("psp-profiles");
+      if (storedProfiles) {
+        const parsedProfiles = JSON.parse(storedProfiles);
+        setProfiles(parsedProfiles);
       }
     }
   }, []);
@@ -154,6 +181,7 @@ export default function TrainingRecordsPage() {
       className: selectedClass.name,
       startDate: data.startDate,
       maxAttendees: data.maxAttendees,
+      participants: [], // Initialize with empty participants array
       createdAt: new Date().toISOString(),
     };
 
@@ -199,6 +227,69 @@ export default function TrainingRecordsPage() {
     setScheduledClasses(scheduledClasses.filter((c) => c.id !== id));
     toast.success("Scheduled class deleted successfully!");
   };
+
+  const openParticipantDialog = (scheduledClassId: string) => {
+    setCurrentScheduledClassId(scheduledClassId);
+    const scheduledClass = scheduledClasses.find(sc => sc.id === scheduledClassId);
+    if (scheduledClass) {
+      setSelectedParticipants(scheduledClass.participants.map(p => p.id));
+    }
+    setIsParticipantDialogOpen(true);
+  };
+
+  const toggleParticipant = (profileId: string) => {
+    setSelectedParticipants(prev => {
+      if (prev.includes(profileId)) {
+        return prev.filter(id => id !== profileId);
+      } else {
+        return [...prev, profileId];
+      }
+    });
+  };
+
+  const saveParticipants = () => {
+    if (!currentScheduledClassId) return;
+
+    const scheduledClass = scheduledClasses.find(sc => sc.id === currentScheduledClassId);
+    if (!scheduledClass) return;
+
+    // Check if number of participants exceeds max attendees
+    if (selectedParticipants.length > scheduledClass.maxAttendees) {
+      toast.error(`Cannot add more than ${scheduledClass.maxAttendees} participants`);
+      return;
+    }
+
+    const participants: Participant[] = selectedParticipants.map(profileId => {
+      const profile = profiles.find(p => p.id === profileId);
+      return {
+        id: profile?.id || profileId,
+        name: profile ? `${profile.firstName} ${profile.lastName}` : "Unknown",
+        email: profile?.email || "",
+        type: profile?.type || "",
+      };
+    });
+
+    setScheduledClasses(prev => prev.map(sc => 
+      sc.id === currentScheduledClassId 
+        ? { ...sc, participants }
+        : sc
+    ));
+
+    setIsParticipantDialogOpen(false);
+    setCurrentScheduledClassId(null);
+    setSelectedParticipants([]);
+    toast.success(`${participants.length} participant(s) added successfully!`);
+  };
+
+  const removeParticipant = (scheduledClassId: string, participantId: string) => {
+    setScheduledClasses(prev => prev.map(sc => 
+      sc.id === scheduledClassId 
+        ? { ...sc, participants: sc.participants.filter(p => p.id !== participantId) }
+        : sc
+    ));
+    toast.info("Participant removed");
+  };
+
 
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return "0 Bytes";
@@ -494,7 +585,7 @@ export default function TrainingRecordsPage() {
                           
                           <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
                             <Users className="w-4 h-4" />
-                            <span>Max Attendees: {scheduled.maxAttendees}</span>
+                            <span>Enrolled: {scheduled.participants.length} / {scheduled.maxAttendees}</span>
                           </div>
 
                           {classDetails && (
@@ -505,7 +596,7 @@ export default function TrainingRecordsPage() {
                               </div>
                               
                               {classDetails.prerequisites.length > 0 && (
-                                <div>
+                                <div className="mb-3">
                                   <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
                                     Prerequisites:
                                   </p>
@@ -523,6 +614,48 @@ export default function TrainingRecordsPage() {
                               )}
                             </div>
                           )}
+
+                          {scheduled.participants.length > 0 && (
+                            <div className="pt-2 border-t border-gray-200 dark:border-gray-700">
+                              <p className="text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                                Participants:
+                              </p>
+                              <div className="space-y-1 max-h-32 overflow-y-auto">
+                                {scheduled.participants.map((participant) => (
+                                  <div
+                                    key={participant.id}
+                                    className="flex items-center justify-between gap-2 text-xs bg-gray-50 dark:bg-gray-700/50 p-2 rounded"
+                                  >
+                                    <div className="flex-1 min-w-0">
+                                      <p className="font-medium text-gray-900 dark:text-white truncate">
+                                        {participant.name}
+                                      </p>
+                                      <p className="text-gray-600 dark:text-gray-400 truncate">
+                                        {participant.email}
+                                      </p>
+                                    </div>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => removeParticipant(scheduled.id, participant.id)}
+                                      className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 h-6 w-6 p-0"
+                                    >
+                                      <X className="w-3 h-3" />
+                                    </Button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          <Button
+                            onClick={() => openParticipantDialog(scheduled.id)}
+                            className="w-full mt-3 bg-green-600 hover:bg-green-700"
+                            size="sm"
+                          >
+                            <UserPlus className="w-4 h-4 mr-2" />
+                            Manage Participants
+                          </Button>
                         </CardContent>
                       </Card>
                     );
@@ -707,6 +840,82 @@ export default function TrainingRecordsPage() {
             </Card>
           </TabsContent>
         </Tabs>
+
+        <Dialog open={isParticipantDialogOpen} onOpenChange={setIsParticipantDialogOpen}>
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto bg-white dark:bg-gray-800">
+            <DialogHeader>
+              <DialogTitle className="text-gray-900 dark:text-white">Manage Class Participants</DialogTitle>
+              <DialogDescription className="text-gray-600 dark:text-gray-300">
+                Select participants to add to this class session
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4 py-4">
+              {profiles.length === 0 ? (
+                <div className="text-center py-8">
+                  <Users className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    No profiles available. Create user registrations or applications first.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {profiles.map((profile) => (
+                    <div
+                      key={profile.id}
+                      className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      <Checkbox
+                        id={profile.id}
+                        checked={selectedParticipants.includes(profile.id)}
+                        onCheckedChange={() => toggleParticipant(profile.id)}
+                      />
+                      <label
+                        htmlFor={profile.id}
+                        className="flex-1 cursor-pointer"
+                      >
+                        <p className="font-medium text-gray-900 dark:text-white">
+                          {profile.firstName} {profile.lastName}
+                        </p>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                          {profile.email}
+                        </p>
+                        <p className="text-xs text-gray-500 dark:text-gray-500">
+                          Type: {profile.type}
+                        </p>
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Selected: {selectedParticipants.length} participant(s)
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setIsParticipantDialogOpen(false);
+                      setSelectedParticipants([]);
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={saveParticipants}
+                    className="bg-blue-600 hover:bg-blue-700"
+                    disabled={selectedParticipants.length === 0}
+                  >
+                    <UserPlus className="w-4 h-4 mr-2" />
+                    Add Participants
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
