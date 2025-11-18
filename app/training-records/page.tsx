@@ -13,7 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Plus, BookOpen, Upload, Trash2, FileText, Clock, Calendar, Users, UserPlus, X } from 'lucide-react';
+import { Plus, BookOpen, Upload, Trash2, FileText, Clock, Calendar, Users, UserPlus, X, Building2 } from 'lucide-react';
 import { toast } from "sonner";
 
 // Types
@@ -40,7 +40,7 @@ interface ScheduledClass {
   id: string;
   classId: string;
   className: string;
-  startDate: string;
+  facilityType: string;
   maxAttendees: number;
   participants: Participant[];
   createdAt: string;
@@ -75,7 +75,7 @@ const classSchema = z.object({
 // Zod schema for scheduled class
 const scheduledClassSchema = z.object({
   classId: z.string().min(1, "Please select a class"),
-  startDate: z.string().min(1, "Start date is required"),
+  facilityType: z.string().min(1, "Please select a facility type"),
   maxAttendees: z.coerce.number().min(1, "Must have at least 1 attendee").max(100, "Cannot exceed 100 attendees"),
 });
 
@@ -179,7 +179,7 @@ export default function TrainingRecordsPage() {
       id: Date.now().toString(),
       classId: data.classId,
       className: selectedClass.name,
-      startDate: data.startDate,
+      facilityType: data.facilityType,
       maxAttendees: data.maxAttendees,
       participants: [], // Initialize with empty participants array
       createdAt: new Date().toISOString(),
@@ -487,18 +487,24 @@ export default function TrainingRecordsPage() {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="startDate" className="text-gray-900 dark:text-white">
-                        Class Start Date <span className="text-red-500">*</span>
+                      <Label htmlFor="facilityType" className="text-gray-900 dark:text-white">
+                        Facility Type <span className="text-red-500">*</span>
                       </Label>
-                      <Input
-                        id="startDate"
-                        type="date"
-                        {...registerSchedule("startDate")}
-                        min={new Date().toISOString().split('T')[0]}
-                        className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white"
-                      />
-                      {errorsSchedule.startDate && (
-                        <p className="text-sm text-red-600 dark:text-red-400">{errorsSchedule.startDate.message}</p>
+                      <Select onValueChange={(value) => setValueSchedule("facilityType", value)}>
+                        <SelectTrigger className="bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white">
+                          <SelectValue placeholder="Select facility type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Classroom">Classroom</SelectItem>
+                          <SelectItem value="Range">Range</SelectItem>
+                          <SelectItem value="Amphitheater">Amphitheater</SelectItem>
+                          <SelectItem value="Auditorium">Auditorium</SelectItem>
+                          <SelectItem value="Gym">Gym</SelectItem>
+                          <SelectItem value="Pool">Pool</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {errorsSchedule.facilityType && (
+                        <p className="text-sm text-red-600 dark:text-red-400">{errorsSchedule.facilityType.message}</p>
                       )}
                     </div>
 
@@ -579,8 +585,8 @@ export default function TrainingRecordsPage() {
                         </CardHeader>
                         <CardContent className="space-y-3">
                           <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
-                            <Calendar className="w-4 h-4" />
-                            <span>Start: {new Date(scheduled.startDate).toLocaleDateString()}</span>
+                            <Building2 className="w-4 h-4" />
+                            <span>Facility: {scheduled.facilityType}</span>
                           </div>
                           
                           <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-300">
