@@ -495,20 +495,21 @@ export default function FacilityBooking() {
                 <div className="space-y-2">
                   <Label htmlFor="facilityType" className="text-gray-900 dark:text-white">Facility Type</Label>
                   <Select
-                    value={reservationForm.watch("facilityType")}
+                    value={reservationForm.watch("facilityType") || ""}
                     onValueChange={(value) => {
-                      reservationForm.setValue("facilityType", value as FacilityType);
-                      setSelectedFacility({ type: value as FacilityType });
-                      reservationForm.setValue("facilityNumber", undefined);
-                      setCheckInDate(undefined);
-                      setCheckOutDate(undefined);
+                      if (value && value !== "") {
+                        reservationForm.setValue("facilityType", value as FacilityType);
+                        setSelectedFacility({ type: value as FacilityType });
+                        reservationForm.setValue("facilityNumber", undefined);
+                        setCheckInDate(undefined);
+                        setCheckOutDate(undefined);
+                      }
                     }}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="[Select Facility]" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="" disabled>[Select Facility]</SelectItem>
                       <SelectItem value="dorm">Dorm Room</SelectItem>
                       <SelectItem value="classroom">Classroom</SelectItem>
                       <SelectItem value="range">Range</SelectItem>
