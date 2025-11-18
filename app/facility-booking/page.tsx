@@ -65,14 +65,26 @@ interface Reservation {
 const reservationSchema = z.object({
   facilityType: z.enum(["dorm", "classroom", "range", "amphitheater", "auditorium", "gym", "pool", "other"]),
   facilityNumber: z.string().optional(),
-  guestName: z.string().min(2, "Name must be at least 2 characters").max(100), // Changed from profileId
-  guestEmail: z.string().email("Invalid email address"), // Added guest email
-  checkIn: z.date({ required_error: "Check-in date is required" }),
-  checkOut: z.date({ required_error: "Check-out date is required" }),
+  guestName: z.string().min(2, "Name must be at least 2 characters").max(100).optional(),
+  guestEmail: z.string().email("Invalid email address").optional(),
+  instructorName: z.string().min(2, "Name must be at least 2 characters").max(100).optional(),
+  instructorEmail: z.string().email("Invalid email address").optional(),
+  checkIn: z.date({ required_error: "Start date is required" }),
+  checkOut: z.date({ required_error: "End date is required" }),
   purpose: z.string().min(10, "Purpose must be at least 10 characters").max(500),
   specialRequests: z.string().max(500).optional(),
+}).refine((data) => {
+  // If facility type is Dorm Room, guestName and guestEmail are required
+  if (data.facilityType === "dorm") {
+    return data.guestName && data.guestEmail;
+  }
+  // Otherwise, instructorName and instructorEmail are required
+  return data.instructorName && data.instructorEmail;
+}, {
+  message: "Required contact information is missing",
+  path: ["guestName"],
 }).refine((data) => data.checkOut > data.checkIn, {
-  message: "Check-out must be after check-in",
+  message: "End date must be after start date",
   path: ["checkOut"],
 }).refine((data) => {
   const days = differenceInDays(data.checkOut, data.checkIn);
@@ -144,6 +156,8 @@ export default function FacilityBooking() {
       // Removed profileId and added guestName and guestEmail
       guestName: "",
       guestEmail: "",
+      instructorName: "",
+      instructorEmail: "",
       purpose: "",
       specialRequests: "",
     },
@@ -283,6 +297,8 @@ export default function FacilityBooking() {
     const newReservation: Reservation = {
       id: `RES-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       ...data,
+      guestName: data.facilityType === "dorm" ? data.guestName! : data.instructorName!,
+      guestEmail: data.facilityType === "dorm" ? data.guestEmail! : data.instructorEmail!,
       checkIn: data.checkIn.toISOString(),
       checkOut: data.checkOut.toISOString(),
       status: "active",
@@ -407,6 +423,9 @@ export default function FacilityBooking() {
   // Removed watchProfileType
   // const watchProfileType = profileForm.watch("profileType");
   // const isLEProfile = watchProfileType === "PSP" || watchProfileType === "Other LE";
+
+  const watchFacilityType = reservationForm.watch("facilityType");
+  const isDormRoom = watchFacilityType === "dorm";
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-8">
@@ -588,23 +607,43 @@ export default function FacilityBooking() {
                   </div>
                 )}
 
-                {/* Guest Information */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="guestName" className="text-gray-900 dark:text-white">Guest Name</Label>
-                    <Input {...reservationForm.register("guestName")} placeholder="John Doe" />
-                    {reservationForm.formState.errors.guestName && (
-                      <p className="text-sm text-red-600">{reservationForm.formState.errors.guestName.message}</p>
-                    )}
+                {isDormRoom ? (
+                  // Guest Information for Dorm Rooms
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="guestName" className="text-gray-900 dark:text-white">Guest Name</Label>
+                      <Input {...reservationForm.register("guestName")} placeholder="John Doe" />
+                      {reservationForm.formState.errors.guestName && (
+                        <p className="text-sm text-red-600">{reservationForm.formState.errors.guestName.message}</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="guestEmail" className="text-gray-900 dark:text-white">Guest Email</Label>
+                      <Input {...reservationForm.register("guestEmail")} type="email" placeholder="john.doe@example.com" />
+                      {reservationForm.formState.errors.guestEmail && (
+                        <p className="text-sm text-red-600">{reservationForm.formState.errors.guestEmail.message}</p>
+                      )}
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="guestEmail" className="text-gray-900 dark:text-white">Guest Email</Label>
-                    <Input {...reservationForm.register("guestEmail")} type="email" placeholder="john.doe@example.com" />
-                    {reservationForm.formState.errors.guestEmail && (
-                      <p className="text-sm text-red-600">{reservationForm.formState.errors.guestEmail.message}</p>
-                    )}
+                ) : (
+                  // Instructor Information for Other Facilities
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="instructorName" className="text-gray-900 dark:text-white">Instructor Name</Label>
+                      <Input {...reservationForm.register("instructorName")} placeholder="Jane Smith" />
+                      {reservationForm.formState.errors.instructorName && (
+                        <p className="text-sm text-red-600">{reservationForm.formState.errors.instructorName.message}</p>
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="instructorEmail" className="text-gray-900 dark:text-white">Instructor Email</Label>
+                      <Input {...reservationForm.register("instructorEmail")} type="email" placeholder="jane.smith@psp.gov" />
+                      {reservationForm.formState.errors.instructorEmail && (
+                        <p className="text-sm text-red-600">{reservationForm.formState.errors.instructorEmail.message}</p>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Date Selection */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
