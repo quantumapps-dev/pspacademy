@@ -518,6 +518,276 @@ export default function UserAdministration() {
           </TabsContent>
         </Tabs>
       </div>
+
+      <Dialog open={isUserDialogOpen} onOpenChange={setIsUserDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editingUser ? "Edit User" : "Add New User"}</DialogTitle>
+            <DialogDescription>
+              {editingUser ? "Update user information and role" : "Create a new user account with role assignment"}
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleSubmit(onUserSubmit)} className="space-y-4">
+            <div>
+              <Label htmlFor="username">Username</Label>
+              <Input
+                id="username"
+                {...register("username")}
+                placeholder="johndoe"
+              />
+              {errors.username && (
+                <p className="text-sm text-red-600 mt-1">{errors.username.message}</p>
+              )}
+            </div>
+
+            <div>
+              <Label htmlFor="fullName">Full Name</Label>
+              <Input
+                id="fullName"
+                {...register("fullName")}
+                placeholder="John Doe"
+              />
+              {errors.fullName && (
+                <p className="text-sm text-red-600 mt-1">{errors.fullName.message}</p>
+              )}
+            </div>
+
+            <div>
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                {...register("email")}
+                placeholder="john.doe@example.com"
+              />
+              {errors.email && (
+                <p className="text-sm text-red-600 mt-1">{errors.email.message}</p>
+              )}
+            </div>
+
+            <div>
+              <Label htmlFor="cellNumber">Cell Number (MFA)</Label>
+              <Input
+                id="cellNumber"
+                {...register("cellNumber")}
+                placeholder="555-123-4567"
+              />
+              {errors.cellNumber && (
+                <p className="text-sm text-red-600 mt-1">{errors.cellNumber.message}</p>
+              )}
+            </div>
+
+            <div>
+              <Label htmlFor="role">Role</Label>
+              <Select
+                onValueChange={(value) => setValue("role", value)}
+                defaultValue={editingUser?.role}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a role" />
+                </SelectTrigger>
+                <SelectContent>
+                  {roles.map((role) => (
+                    <SelectItem key={role.id} value={role.name}>
+                      {role.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {errors.role && (
+                <p className="text-sm text-red-600 mt-1">{errors.role.message}</p>
+              )}
+            </div>
+
+            <div>
+              <Label htmlFor="status">Status</Label>
+              <Select
+                onValueChange={(value) => setValue("status", value as "Active" | "Inactive")}
+                defaultValue={editingUser?.status || "Active"}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Active">Active</SelectItem>
+                  <SelectItem value="Inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+              {errors.status && (
+                <p className="text-sm text-red-600 mt-1">{errors.status.message}</p>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setIsUserDialogOpen(false);
+                  setEditingUser(null);
+                  reset();
+                }}
+              >
+                Cancel
+              </Button>
+              <Button type="submit">
+                {editingUser ? "Update User" : "Create User"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isRoleDialogOpen} onOpenChange={setIsRoleDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingRole ? "Edit Role" : "Create New Role"}</DialogTitle>
+            <DialogDescription>
+              Define role permissions for each module and section
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="roleName">Role Name</Label>
+              <Input
+                id="roleName"
+                value={newRoleName}
+                onChange={(e) => setNewRoleName(e.target.value)}
+                placeholder="e.g., Instructor"
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="roleDescription">Description</Label>
+              <Input
+                id="roleDescription"
+                value={newRoleDescription}
+                onChange={(e) => setNewRoleDescription(e.target.value)}
+                placeholder="Brief description of this role"
+              />
+            </div>
+
+            <div className="border-t pt-4">
+              <h3 className="font-semibold mb-4">Module Permissions</h3>
+              <div className="space-y-4">
+                {APPLICATION_MODULES.map((module) => (
+                  <Card key={module.id} className="border-2">
+                    <CardHeader className="pb-3">
+                      <CardTitle className="text-base">{module.name}</CardTitle>
+                      <CardDescription className="text-xs">{module.description}</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {module.sections.map((section) => (
+                        <div key={section} className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+                          <p className="text-sm font-medium mb-2">{section}</p>
+                          <div className="flex gap-4">
+                            {CRUD_PERMISSIONS.map((permission) => (
+                              <div key={permission} className="flex items-center space-x-2">
+                                <Checkbox
+                                  id={`${module.id}-${section}-${permission}`}
+                                  checked={
+                                    rolePermissions[module.id]?.[section]?.includes(permission) || false
+                                  }
+                                  onCheckedChange={() =>
+                                    togglePermission(module.id, section, permission)
+                                  }
+                                />
+                                <label
+                                  htmlFor={`${module.id}-${section}-${permission}`}
+                                  className="text-sm cursor-pointer"
+                                >
+                                  {permission}
+                                </label>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setIsRoleDialogOpen(false);
+                setEditingRole(null);
+                setNewRoleName("");
+                setNewRoleDescription("");
+                setRolePermissions({});
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleCreateRole}>
+              {editingRole ? "Update Role" : "Create Role"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isPermissionDialogOpen} onOpenChange={setIsPermissionDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>User Permissions</DialogTitle>
+            <DialogDescription>
+              {selectedUser && `Viewing permissions for ${selectedUser.fullName} (${selectedUser.role})`}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedUser && (
+            <div className="space-y-4">
+              {(() => {
+                const userRole = getUserRole(selectedUser);
+                if (!userRole) {
+                  return <p className="text-gray-500">No role assigned</p>;
+                }
+
+                return APPLICATION_MODULES.map((module) => {
+                  const modulePermissions = userRole.permissions[module.id];
+                  if (!modulePermissions) return null;
+
+                  return (
+                    <Card key={module.id} className="border-2">
+                      <CardHeader className="pb-3">
+                        <CardTitle className="text-base">{module.name}</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-2">
+                        {module.sections.map((section) => {
+                          const sectionPermissions = modulePermissions[section];
+                          if (!sectionPermissions || sectionPermissions.length === 0) return null;
+
+                          return (
+                            <div key={section} className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+                              <p className="text-sm font-medium mb-2">{section}</p>
+                              <div className="flex gap-2 flex-wrap">
+                                {sectionPermissions.map((permission) => (
+                                  <span
+                                    key={permission}
+                                    className="px-2 py-1 bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 text-xs rounded"
+                                  >
+                                    {permission}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </CardContent>
+                    </Card>
+                  );
+                });
+              })()}
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={() => setIsPermissionDialogOpen(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
