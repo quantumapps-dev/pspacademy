@@ -101,7 +101,7 @@ export default function NewApplication() {
     {
       title: "Personal Information",
       description: "Enter your basic information",
-      fields: ["firstName", "middleName", "lastName", "suffix"] as const,
+      fields: ["firstName", "middleName", "lastName", "suffix", "dateOfBirth"] as const,
     },
     {
       title: "Contact Information",
@@ -112,11 +112,6 @@ export default function NewApplication() {
       title: "Address Information",
       description: "Enter your address details",
       fields: ["homeAddress", "mailingAddress"] as const,
-    },
-    {
-      title: "Date of Birth",
-      description: "Verify your age eligibility",
-      fields: ["dateOfBirth"] as const,
     },
   ];
 
@@ -333,6 +328,22 @@ export default function NewApplication() {
                         </FormItem>
                       )}
                     />
+                    <FormField
+                      control={form.control}
+                      name="dateOfBirth"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-gray-900 dark:text-white">Date of Birth *</FormLabel>
+                          <FormControl>
+                            <Input type="date" {...field} className="bg-white dark:bg-gray-900" />
+                          </FormControl>
+                          <FormDescription className="text-gray-500 dark:text-gray-400">
+                            You must be at least 18 years old to apply
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   </div>
                 )}
 
@@ -431,27 +442,6 @@ export default function NewApplication() {
                           </FormControl>
                           <FormDescription className="text-gray-500 dark:text-gray-400">
                             Optional - Leave blank if same as home address
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                )}
-
-                {currentStep === 3 && (
-                  <div className="space-y-4">
-                    <FormField
-                      control={form.control}
-                      name="dateOfBirth"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-gray-900 dark:text-white">Date of Birth *</FormLabel>
-                          <FormControl>
-                            <Input type="date" {...field} className="bg-white dark:bg-gray-900" />
-                          </FormControl>
-                          <FormDescription className="text-gray-500 dark:text-gray-400">
-                            You must be at least 18 years old to apply
                           </FormDescription>
                           <FormMessage />
                         </FormItem>
