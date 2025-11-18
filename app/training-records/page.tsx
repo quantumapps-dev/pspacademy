@@ -98,6 +98,7 @@ export default function TrainingRecordsPage() {
   const [editingScheduledClassId, setEditingScheduledClassId] = useState<string | null>(null);
   const [editingClassId, setEditingClassId] = useState<string | null>(null);
   const [requiresDormRoom, setRequiresDormRoom] = useState(false);
+  const [reservations, setReservations] = useState<any[]>([]);
 
   const {
     register,
@@ -135,6 +136,10 @@ export default function TrainingRecordsPage() {
         const parsedProfiles = JSON.parse(storedProfiles);
         setProfiles(parsedProfiles);
       }
+      const storedReservations = localStorage.getItem("psp_reservations");
+      if (storedReservations) {
+        setReservations(JSON.parse(storedReservations));
+      }
     }
   }, []);
 
@@ -149,6 +154,13 @@ export default function TrainingRecordsPage() {
       localStorage.setItem("scheduled-classes", JSON.stringify(scheduledClasses));
     }
   }, [scheduledClasses, mounted]);
+
+  // Save reservations to localStorage whenever they change
+  useEffect(() => {
+    if (mounted && typeof window !== "undefined") {
+      localStorage.setItem("psp_reservations", JSON.stringify(reservations));
+    }
+  }, [reservations, mounted]);
 
   const onSubmit = (data: ClassFormData) => {
     const prerequisites = data.prerequisites
@@ -399,7 +411,16 @@ export default function TrainingRecordsPage() {
     setRequiresDormRoom(false);
   };
 
-  // Removed isClassScheduled function
+  // Check if scheduled class has a facility booking
+  const hasFacilityBooking = (scheduledClass: ScheduledClass): boolean => {
+    if (typeof window === "undefined") return false;
+    
+    // Check if there's an active reservation matching the scheduled class's facility type
+    return reservations.some(reservation => 
+      reservation.status === "active" && 
+      reservation.facilityType.toLowerCase() === scheduledClass.facilityType.toLowerCase()
+    );
+  };
 
   if (!mounted) {
     return null;
@@ -704,12 +725,23 @@ export default function TrainingRecordsPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {scheduledClasses.map((scheduled) => {
                     const classDetails = classes.find(c => c.id === scheduled.classId);
+                    const isBooked = hasFacilityBooking(scheduled);
+                    
                     return (
                       <Card key={scheduled.id} className="bg-white dark:bg-gray-800 hover:shadow-lg transition-shadow">
                         <CardHeader>
                           <CardTitle className="text-lg text-gray-900 dark:text-white flex items-start justify-between">
                             <span className="flex-1">{scheduled.className}</span>
                             <div className="flex gap-1">
+                              {isBooked ? (
+                                <div className="text-blue-600 dark:text-blue-400" title="Facility booked">
+                                  <Calendar className="w-5 h-5" />
+                                </div>
+                              ) : (
+                                <div className="text-red-600 dark:text-red-400" title="Facility not booked">
+                                  <Calendar className="w-5 h-5" />
+                                </div>
+                              )}
                               <Button
                                 variant="ghost"
                                 size="sm"
