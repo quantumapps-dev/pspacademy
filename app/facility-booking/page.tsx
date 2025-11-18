@@ -13,9 +13,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Calendar } from "../../components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "../../components/ui/popover";
 import { Badge } from "../../components/ui/badge";
+import { Alert, AlertDescription } from "../../components/ui/alert";
 import { toast } from "sonner";
-import { Building2, CalendarIcon, Plus, Search, User, Trash2, Edit, Upload } from 'lucide-react';
-import { format, addDays, differenceInDays } from "date-fns";
+import { Building2, CalendarIcon, Plus, Search, Trash2, AlertCircle } from 'lucide-react';
+import { format, addDays, differenceInDays, isWithinInterval, parseISO } from "date-fns";
 import { cn } from "../../lib/utils";
 
 // Types
@@ -97,6 +98,10 @@ export default function FacilityBooking() {
   const [checkOutDate, setCheckOutDate] = useState<Date>();
   // const [dobDate, setDobDate] = useState<Date>();
   // const [employmentDate, setEmploymentDate] = useState<Date>();
+
+  const [selectedFacility, setSelectedFacility] = useState<{type: FacilityType, number?: string} | null>(null);
+  const [bookedDates, setBookedDates] = useState<Date[]>([]);
+  const [hasConflict, setHasConflict] = useState(false);
 
   // Load data from localStorage on mount
   useEffect(() => {
@@ -187,21 +192,97 @@ export default function FacilityBooking() {
   //   setShowProfileDialog(false);
   // };
 
+  const getBookedDatesForFacility = (facilityType: FacilityType, facilityNumber?: string) => {
+    if (typeof window === "undefined") return [];
+    
+    const facilityReservations = reservations.filter(r => 
+      r.status === "active" && 
+      r.facilityType === facilityType &&
+      (!facilityNumber || r.facilityNumber === facilityNumber)
+    );
+
+    const dates: Date[] = [];
+    facilityReservations.forEach(reservation => {
+      const start = parseISO(reservation.checkIn);
+      const end = parseISO(reservation.checkOut);
+      
+      // Add all dates in the reservation range
+      let currentDate = start;
+      while (currentDate <= end) {
+        dates.push(new Date(currentDate));
+        currentDate = addDays(currentDate, 1);
+      }
+    });
+
+    return dates;
+  };
+
+  const checkForConflicts = (facilityType: FacilityType, facilityNumber: string | undefined, checkIn: Date, checkOut: Date) => {
+    if (typeof window === "undefined") return false;
+    
+    const facilityReservations = reservations.filter(r => 
+      r.status === "active" && 
+      r.facilityType === facilityType &&
+      (!facilityNumber || r.facilityNumber === facilityNumber)
+    );
+
+    return facilityReservations.some(reservation => {
+      const existingStart = parseISO(reservation.checkIn);
+      const existingEnd = parseISO(reservation.checkOut);
+      
+      // Check if dates overlap
+      return (
+        (checkIn >= existingStart && checkIn <= existingEnd) ||
+        (checkOut >= existingStart && checkOut <= existingEnd) ||
+        (checkIn <= existingStart && checkOut >= existingEnd)
+      );
+    });
+  };
+
+  useEffect(() => {
+    if (selectedFacility) {
+      const dates = getBookedDatesForFacility(selectedFacility.type, selectedFacility.number);
+      setBookedDates(dates);
+    } else {
+      setBookedDates([]);
+    }
+  }, [selectedFacility, reservations]);
+
+  useEffect(() => {
+    if (checkInDate && checkOutDate && selectedFacility) {
+      const conflict = checkForConflicts(
+        selectedFacility.type,
+        selectedFacility.number,
+        checkInDate,
+        checkOutDate
+      );
+      setHasConflict(conflict);
+    } else {
+      setHasConflict(false);
+    }
+  }, [checkInDate, checkOutDate, selectedFacility, reservations]);
+
+
   // Handle reservation submission
   const onReservationSubmit = (data: ReservationFormData) => {
     if (typeof window === "undefined") return;
 
-    // Removed profile lookup and used guestName and guestEmail directly
-    // const profile = profiles.find(p => p.id === data.profileId);
-    // if (!profile) {
-    //   toast.error("Profile not found");
-    //   return;
-    // }
+    // Check for conflicts before saving
+    const hasConflict = checkForConflicts(
+      data.facilityType,
+      data.facilityNumber,
+      data.checkIn,
+      data.checkOut
+    );
+
+    if (hasConflict) {
+      toast.error("This facility is already booked for the selected dates. Please choose different dates.");
+      return;
+    }
 
     const newReservation: Reservation = {
       id: `RES-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       ...data,
-      // profileName: `${profile.firstName} ${profile.lastName}`,
       checkIn: data.checkIn.toISOString(),
       checkOut: data.checkOut.toISOString(),
       status: "active",
@@ -217,6 +298,7 @@ export default function FacilityBooking() {
     reservationForm.reset();
     setCheckInDate(undefined);
     setCheckOutDate(undefined);
+    setSelectedFacility(null); // Reset selected facility on submission
   };
 
   // Delete profile
@@ -395,7 +477,13 @@ export default function FacilityBooking() {
                   <Label htmlFor="facilityType" className="text-gray-900 dark:text-white">Facility Type</Label>
                   <Select
                     value={reservationForm.watch("facilityType")}
-                    onValueChange={(value) => reservationForm.setValue("facilityType", value as FacilityType)}
+                    onValueChange={(value) => {
+                      reservationForm.setValue("facilityType", value as FacilityType);
+                      setSelectedFacility({ type: value as FacilityType });
+                      reservationForm.setValue("facilityNumber", undefined);
+                      setCheckInDate(undefined);
+                      setCheckOutDate(undefined);
+                    }}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select facility type" />
@@ -422,7 +510,12 @@ export default function FacilityBooking() {
                     <Label htmlFor="facilityNumber" className="text-gray-900 dark:text-white">Dorm Room Number</Label>
                     <Select
                       value={reservationForm.watch("facilityNumber")}
-                      onValueChange={(value) => reservationForm.setValue("facilityNumber", value)}
+                      onValueChange={(value) => {
+                        reservationForm.setValue("facilityNumber", value);
+                        setSelectedFacility({ type: "dorm", number: value });
+                        setCheckInDate(undefined);
+                        setCheckOutDate(undefined);
+                      }}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select room number (001-300)" />
@@ -441,7 +534,12 @@ export default function FacilityBooking() {
                     <Label htmlFor="facilityNumber" className="text-gray-900 dark:text-white">Classroom</Label>
                     <Select
                       value={reservationForm.watch("facilityNumber")}
-                      onValueChange={(value) => reservationForm.setValue("facilityNumber", value)}
+                      onValueChange={(value) => {
+                        reservationForm.setValue("facilityNumber", value);
+                        setSelectedFacility({ type: "classroom", number: value });
+                        setCheckInDate(undefined);
+                        setCheckOutDate(undefined);
+                      }}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select classroom" />
@@ -452,6 +550,41 @@ export default function FacilityBooking() {
                         ))}
                       </SelectContent>
                     </Select>
+                  </div>
+                )}
+
+                {selectedFacility && (reservationForm.watch("facilityNumber") || !["dorm", "classroom"].includes(selectedFacility.type)) && (
+                  <div className="space-y-3">
+                    <Label className="text-gray-900 dark:text-white">Availability Calendar</Label>
+                    <div className="border rounded-lg p-4 bg-gray-50 dark:bg-gray-900">
+                      <div className="flex gap-4 mb-3 text-xs">
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 bg-green-100 dark:bg-green-900 border border-green-300 dark:border-green-700 rounded"></div>
+                          <span className="text-gray-700 dark:text-gray-300">Available</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 bg-red-100 dark:bg-red-900 border border-red-300 dark:border-red-700 rounded"></div>
+                          <span className="text-gray-700 dark:text-gray-300">Booked</span>
+                        </div>
+                      </div>
+                      <Calendar
+                        mode="single"
+                        selected={checkInDate}
+                        disabled={(date) => date < new Date() || bookedDates.some(bookedDate => 
+                          bookedDate.toDateString() === date.toDateString()
+                        )}
+                        modifiers={{
+                          booked: bookedDates,
+                        }}
+                        modifiersClassNames={{
+                          booked: "bg-red-100 dark:bg-red-900 text-red-900 dark:text-red-100 line-through",
+                        }}
+                        className="rounded-md border-none"
+                      />
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                        Red dates are already booked. You cannot select these dates.
+                      </p>
+                    </div>
                   </div>
                 )}
 
@@ -485,6 +618,7 @@ export default function FacilityBooking() {
                             "w-full justify-start text-left font-normal",
                             !checkInDate && "text-gray-500"
                           )}
+                          disabled={!selectedFacility || (["dorm", "classroom"].includes(selectedFacility.type) && !reservationForm.watch("facilityNumber"))}
                         >
                           <CalendarIcon className="mr-2 h-4 w-4" />
                           {checkInDate ? format(checkInDate, "PPP") : "Pick a date"}
@@ -498,7 +632,12 @@ export default function FacilityBooking() {
                             setCheckInDate(date);
                             if (date) reservationForm.setValue("checkIn", date);
                           }}
-                          disabled={(date) => date < new Date()}
+                          disabled={(date) => {
+                            if (date < new Date()) return true;
+                            return bookedDates.some(bookedDate => 
+                              bookedDate.toDateString() === date.toDateString()
+                            );
+                          }}
                           initialFocus
                         />
                       </PopoverContent>
@@ -518,6 +657,7 @@ export default function FacilityBooking() {
                             "w-full justify-start text-left font-normal",
                             !checkOutDate && "text-gray-500"
                           )}
+                          disabled={!checkInDate}
                         >
                           <CalendarIcon className="mr-2 h-4 w-4" />
                           {checkOutDate ? format(checkOutDate, "PPP") : "Pick a date"}
@@ -531,7 +671,12 @@ export default function FacilityBooking() {
                             setCheckOutDate(date);
                             if (date) reservationForm.setValue("checkOut", date);
                           }}
-                          disabled={(date) => !checkInDate || date <= checkInDate}
+                          disabled={(date) => {
+                            if (!checkInDate || date <= checkInDate) return true;
+                            return bookedDates.some(bookedDate => 
+                              bookedDate.toDateString() === date.toDateString()
+                            );
+                          }}
                           initialFocus
                         />
                       </PopoverContent>
@@ -541,6 +686,15 @@ export default function FacilityBooking() {
                     )}
                   </div>
                 </div>
+
+                {hasConflict && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      This facility is already booked for the selected dates. Please choose different dates.
+                    </AlertDescription>
+                  </Alert>
+                )}
 
                 {/* Duration Display */}
                 {checkInDate && checkOutDate && (
@@ -574,7 +728,7 @@ export default function FacilityBooking() {
                   />
                 </div>
 
-                <Button type="submit" className="w-full" size="lg">
+                <Button type="submit" className="w-full" size="lg" disabled={hasConflict}>
                   Create Reservation
                 </Button>
               </form>
