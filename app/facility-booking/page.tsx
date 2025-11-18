@@ -86,13 +86,13 @@ const reservationSchema = z.object({
 }).refine((data) => {
   // If facility type is Dorm Room, guestName and guestEmail are required
   if (data.facilityType === "dorm") {
-    return data.guestName && data.guestEmail;
+    return !!(data.guestName && data.guestEmail);
   }
   // Otherwise, instructorName and instructorEmail are required
-  return data.instructorName && data.instructorEmail;
+  return !!(data.instructorName && data.instructorEmail);
 }, {
-  message: "Required contact information is missing",
-  path: ["guestName"],
+  message: "Dorm rooms require guest information; other facilities require instructor information",
+  path: ["facilityType"], // Changed to point to facilityType instead of guestName
 }).refine((data) => data.checkOut > data.checkIn, {
   message: "End date must be after start date",
   path: ["checkOut"],
