@@ -505,9 +505,10 @@ export default function FacilityBooking() {
                     }}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select facility type" />
+                      <SelectValue placeholder="[Select Facility]" />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="" disabled>[Select Facility]</SelectItem>
                       <SelectItem value="dorm">Dorm Room</SelectItem>
                       <SelectItem value="classroom">Classroom</SelectItem>
                       <SelectItem value="range">Range</SelectItem>
